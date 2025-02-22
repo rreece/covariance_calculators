@@ -15,8 +15,9 @@ from covariance_calculators.estimators import calc_sample_covariance
 
 
 def calc_covariance_intervals(
-    data: np.ndarray,
-    covariance=None,
+    covariance = None,
+    n_samples: int = None,
+    data: np.ndarray = None,
     confidence_level: float = 0.95,
     method: str = 'normal',
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -25,6 +26,10 @@ def calc_covariance_intervals(
     
     Parameters:
     -----------
+    covariance : np.ndarray
+        Input estimated covariance matrix (n_features, n_features)
+    n_samples : int
+        The number of samples used in estimation
     data : np.ndarray
         Input data matrix (n_samples, n_features)
     confidence_level : float
@@ -41,10 +46,20 @@ def calc_covariance_intervals(
     ci_upper : np.ndarray
         Upper bounds of confidence intervals
     """
-    n_samples, n_features = data.shape
+    n_features = None
+
+    if n_samples is None:
+        n_samples, n_features = data.shape
 
     if covariance is None:
         covariance = calc_sample_covariance(data)
+
+    if n_features is None:
+        n_features, _ = covariance.shape
+
+    assert not covariance is None
+    assert not n_samples is None
+    assert not n_features is None
 
     alpha = 1.0 - confidence_level
 
@@ -110,8 +125,9 @@ def calc_covariance_intervals(
 
 
 def calc_precision_intervals(
-    data: np.ndarray,
     precision=None,
+    n_samples: int = None,
+    data: np.ndarray = None,
     confidence_level: float = 0.95,
     method: str = 'invwishart',
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -120,6 +136,10 @@ def calc_precision_intervals(
     
     Parameters:
     -----------
+    precision : np.ndarray
+        Input estimated precision matrix (n_features, n_features)
+    n_samples : int
+        The number of samples used in estimation
     data : np.ndarray
         Input data matrix (n_samples, n_features)
     confidence_level : float
@@ -136,11 +156,22 @@ def calc_precision_intervals(
     ci_upper : np.ndarray
         Upper bounds of confidence intervals
     """
-    n_samples, n_features = data.shape
+    n_features = None
+    precision = None
+
+    if n_samples is None:
+        n_samples, n_features = data.shape
 
     if precision is None:
         covariance = calc_sample_covariance(data)
         precision = np.linalg.inv(covariance)
+
+    if n_features is None:
+        n_features, _ = precision.shape
+
+    assert not precision is None
+    assert not n_samples is None
+    assert not n_features is None
 
     alpha = 1.0 - confidence_level
     dof = n_samples - 1
