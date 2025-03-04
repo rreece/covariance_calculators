@@ -15,7 +15,7 @@ import numpy as np
 
 
 def calc_sample_mean(data, frequency=None):
-    _mean = np.mean(data, axis=1)
+    _mean = np.mean(data, axis=0)
     if not frequency is None:
         _mean = _mean * frequency
     return _mean
