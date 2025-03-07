@@ -33,7 +33,7 @@ class OnlineCovariance:
     A class to calculate the mean and the covariance matrix
     of the incrementally added, n-dimensional data.
 
-    From:
+    Adapted from:
     https://carstenschelp.github.io/2019/05/12/Online_Covariance_Algorithm_002.html
     """
     def __init__(self, order):
@@ -44,12 +44,12 @@ class OnlineCovariance:
         dataset and of the resulting covariance matrix.
         """
         self._order = order
-        self._shape = (order, order)
+#        self._shape = (order, order)
         self._identity = np.identity(order)
         self._ones = np.ones(order)
         self._count = 0
         self._mean = np.zeros(order)
-        self._cov = np.zeros(self._shape)
+        self._Cn = np.zeros((order, order))
         
     @property
     def count(self):
@@ -71,19 +71,19 @@ class OnlineCovariance:
         """
         array_like, The covariance matrix of the added data.
         """
-        return self._cov
+        return self._Cn / (self._count + 1)
 
     @property
-    def corrcoef(self):
+    def corr(self):
         """
         array_like, The normalized covariance matrix of the added data.
         Consists of the Pearson Correlation Coefficients of the data's features.
         """
         if self._count < 1:
             return None
-        variances = np.diagonal(self._cov)
+        variances = np.diagonal(self.cov)
         denomiator = np.sqrt(variances[np.newaxis,:] * variances[:,np.newaxis])
-        return self._cov / denomiator
+        return self.cov / denomiator
 
     def add(self, observation):
         """
@@ -95,43 +95,43 @@ class OnlineCovariance:
         """
         if self._order != len(observation):
             raise ValueError(f'Observation to add must be of size {self._order}')
-            
+
         self._count += 1
-        delta_at_nMin1 = np.array(observation - self._mean)
-        self._mean += delta_at_nMin1 / self._count
-        weighted_delta_at_n = np.array(observation - self._mean) / self._count
-        D_at_n = np.broadcast_to(weighted_delta_at_n, self._shape).T
-        D = (delta_at_nMin1 * self._identity).dot(D_at_n.T)
-        self._cov = self._cov * (self._count - 1) / self._count + D
-    
-    def merge(self, other):
-        """
-        Merges the current object and the given other object into a new OnlineCovariance object.
+        delta = observation - self._mean
+        self._mean += delta / self._count
+        delta_at_n = observation - self._mean
+        self._Cn += np.outer(delta, delta_at_n)
 
-        Parameters
-        ----------
-        other: OnlineCovariance, The other OnlineCovariance to merge this object with.
-
-        Returns
-        -------
-        OnlineCovariance
-        """
-        if other._order != self._order:
-            raise ValueError(
-                   f'''
-                   Cannot merge two OnlineCovariances with different orders.
-                   ({self._order} != {other._order})
-                   ''')
-            
-        merged_cov = OnlineCovariance(self._order)
-        merged_cov._count = self.count + other.count
-        count_corr = (other.count * self.count) / merged_cov._count
-        merged_cov._mean = (self.mean/other.count + other.mean/self.count) * count_corr
-        flat_mean_diff = self._mean - other._mean
-        mean_diffs = np.broadcast_to(flat_mean_diff, self._shape).T
-        merged_cov._cov = (self._cov * self.count \
-                           + other._cov * other._count \
-                           + mean_diffs * mean_diffs.T * count_corr) \
-                          / merged_cov.count
-        return merged_cov
+#    def merge(self, other):
+#        """
+#        TODO: FIXME: _cov -> _Cn / _count
+#
+#        Merges the current object and the given other object into a new OnlineCovariance object.
+#
+#        Parameters
+#        ----------
+#        other: OnlineCovariance, The other OnlineCovariance to merge this object with.
+#
+#        Returns
+#        -------
+#        OnlineCovariance
+#        """
+#        if other._order != self._order:
+#            raise ValueError(
+#                   f'''
+#                   Cannot merge two OnlineCovariances with different orders.
+#                   ({self._order} != {other._order})
+#                   ''')
+#            
+#        merged_cov = OnlineCovariance(self._order)
+#        merged_cov._count = self.count + other.count
+#        count_corr = (other.count * self.count) / merged_cov._count
+#        merged_cov._mean = (self.mean/other.count + other.mean/self.count) * count_corr
+#        flat_mean_diff = self._mean - other._mean
+#        mean_diffs = np.broadcast_to(flat_mean_diff, (self._order, self._order)).T
+#        merged_cov._cov = (self._cov * self.count \
+#                           + other._cov * other._count \
+#                           + mean_diffs * mean_diffs.T * count_corr) \
+#                          / merged_cov.count
+#        return merged_cov
 
