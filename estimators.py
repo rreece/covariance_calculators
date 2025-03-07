@@ -11,6 +11,7 @@ TODO:
 """
 
 
+import math
 import numpy as np
 
 
@@ -130,9 +131,19 @@ class OnlineCovariance:
 
 
 class EMACovariance(OnlineCovariance):
-    def __init__(self, order, alpha=0.02):
+    def __init__(self, order, alpha=None, halflife=None, span=None):
         super(EMACovariance, self).__init__(order)
-        self._alpha = alpha
+        _alpha = self._calc_alpha(alpha=alpha, halflife=halflife, span=span)
+        assert 0 < _alpha < 1
+        self._alpha = _alpha
+
+    def _calc_alpha(self, alpha=None, halflife=None, span=None):
+        if alpha:
+            return alpha
+        if halflife:
+            return 1.0 - math.exp(-1*math.log(2)/halflife)
+        if span:
+            return 2.0 / (span + 1)
 
     @property
     def cov(self):
