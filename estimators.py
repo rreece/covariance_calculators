@@ -5,7 +5,7 @@ TODO:
 
 [x] Sample mean and covariance
 [x] Online mean and covariance
-[ ] Exponential moving mean and covariance
+[x] Exponential moving mean and covariance
 [ ] Rolling mean and covariance
 [ ] Shrinkage estimators
 """
@@ -44,9 +44,6 @@ class OnlineCovariance:
         dataset and of the resulting covariance matrix.
         """
         self._order = order
-#        self._shape = (order, order)
-        self._identity = np.identity(order)
-        self._ones = np.ones(order)
         self._count = 0
         self._mean = np.zeros(order)
         self._Cn = np.zeros((order, order))
@@ -102,36 +99,61 @@ class OnlineCovariance:
         delta_at_n = observation - self._mean
         self._Cn += np.outer(delta, delta_at_n)
 
-#    def merge(self, other):
-#        """
-#        TODO: FIXME: _cov -> _Cn / _count
-#
-#        Merges the current object and the given other object into a new OnlineCovariance object.
-#
-#        Parameters
-#        ----------
-#        other: OnlineCovariance, The other OnlineCovariance to merge this object with.
-#
-#        Returns
-#        -------
-#        OnlineCovariance
-#        """
-#        if other._order != self._order:
-#            raise ValueError(
-#                   f'''
-#                   Cannot merge two OnlineCovariances with different orders.
-#                   ({self._order} != {other._order})
-#                   ''')
-#            
-#        merged_cov = OnlineCovariance(self._order)
-#        merged_cov._count = self.count + other.count
-#        count_corr = (other.count * self.count) / merged_cov._count
-#        merged_cov._mean = (self.mean/other.count + other.mean/self.count) * count_corr
-#        flat_mean_diff = self._mean - other._mean
-#        mean_diffs = np.broadcast_to(flat_mean_diff, (self._order, self._order)).T
-#        merged_cov._cov = (self._cov * self.count \
-#                           + other._cov * other._count \
-#                           + mean_diffs * mean_diffs.T * count_corr) \
-#                          / merged_cov.count
-#        return merged_cov
+    def merge(self, other):
+        """
+        Merges the current object and the given other object into a new OnlineCovariance object.
+
+        Parameters
+        ----------
+        other: OnlineCovariance, The other OnlineCovariance to merge this object with.
+
+        Returns
+        -------
+        OnlineCovariance
+        """
+        if other._order != self._order:
+            raise ValueError(
+                   f'''
+                   Cannot merge two OnlineCovariances with different orders.
+                   ({self._order} != {other._order})
+                   ''')
+            
+        merged = OnlineCovariance(self._order)
+        merged._count = self.count + other.count
+        w_self = self.count/merged.count
+        w_other = other.count/merged.count
+        merged._mean = (self.mean * w_self) + (other.mean * w_other)
+        delta_mean = self._mean - other._mean
+        w_delta = (other.count * self.count) / merged.count
+        merged._Cn = self._Cn + other._Cn + np.outer(delta_mean, delta_mean) * w_delta
+        return merged
+
+
+class EMACovariance(OnlineCovariance):
+    def __init__(self, order, alpha=0.02):
+        super(EMACovariance, self).__init__(order)
+        self._alpha = alpha
+
+    @property
+    def cov(self):
+        """
+        Note: denominator has W = 1
+        """
+        return self._Cn
+
+    def add(self, observation):
+        if self._order != len(observation):
+            raise ValueError(f'Observation to add must be of size {self._order}')
+
+        self._count += 1  # Not used
+        delta = observation - self._mean
+        self._mean = (1 - self._alpha) * self._mean + self._alpha * observation
+        delta_at_n = observation - self._mean
+        self._Cn = (1 - self._alpha) * self._Cn + self._alpha * np.outer(delta, delta_at_n)
+
+    def merge(self, other):
+        """
+        TODO: Update for EMACovariance
+        """
+        assert False, "Not implemented; Probably won't."
 
