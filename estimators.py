@@ -112,10 +112,10 @@ class OnlineCovariance:
             self._mean = np.array(_obs, dtype=float)
             return
 
-        print("DEBUG: _obs = ", _obs)
-        print("DEBUG: _mean = ", self._mean)
+#        print("DEBUG: _obs = ", _obs)
+#        print("DEBUG: _mean = ", self._mean)
         delta = _obs - self._mean
-        print("DEBUG: delta = ", delta)
+#        print("DEBUG: delta = ", delta)
         self._mean += delta / self.count
         delta_at_n = _obs - self._mean
 
