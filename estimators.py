@@ -62,6 +62,8 @@ class OnlineCovariance:
         """
         double, The mean of the added data.
         """        
+        if self.count < 1:
+            return None
         return self._mean
 
     @property
@@ -69,7 +71,9 @@ class OnlineCovariance:
         """
         array_like, The covariance matrix of the added data.
         """
-        return self._Cn / (self._count + 1)
+        if self.count < 2:
+            return None
+        return self._Cn / (self.count + 1)
 
     @property
     def corr(self):
@@ -77,7 +81,7 @@ class OnlineCovariance:
         array_like, The normalized covariance matrix of the added data.
         Consists of the Pearson Correlation Coefficients of the data's features.
         """
-        if self._count < 1:
+        if self.count < 2:
             return None
         variances = np.diagonal(self.cov)
         denomiator = np.sqrt(variances[np.newaxis,:] * variances[:,np.newaxis])
@@ -91,13 +95,27 @@ class OnlineCovariance:
         ----------
         observation: array_like, The observation to add.
         """
-        if self._order != len(observation):
-            raise ValueError(f'Observation to add must be of size {self._order}')
+        if isinstance(observation, np.ndarray):
+            _obs = observation
+        elif isinstance(observation, list):
+            _obs = np.array(observation)
+        elif isinstance(observation, int) or isinstance(observation, float):
+            _obs = np.array([observation])
+        else:
+            assert False
+
+        if self._order != _obs.size:
+            raise ValueError(f"To add, observation size {_obs.size} must be {self._order}")
 
         self._count += 1
-        delta = observation - self._mean
-        self._mean += delta / self._count
-        delta_at_n = observation - self._mean
+        if self.count == 1: # First entry 
+            self._mean = np.array(_obs)
+            return
+
+        delta = _obs - self._mean
+        self._mean += delta / self.count
+        delta_at_n = _obs - self._mean
+
         self._Cn += np.outer(delta, delta_at_n)
 
     def merge(self, other):
@@ -114,10 +132,10 @@ class OnlineCovariance:
         """
         if other._order != self._order:
             raise ValueError(
-                   f'''
+                   f"""
                    Cannot merge two OnlineCovariances with different orders.
                    ({self._order} != {other._order})
-                   ''')
+                   """)
             
         merged = OnlineCovariance(self._order)
         merged._count = self.count + other.count
@@ -150,16 +168,36 @@ class EMACovariance(OnlineCovariance):
         """
         Note: denominator has W = 1
         """
+        if self.count < 2:
+            return None
         return self._Cn
 
     def add(self, observation):
-        if self._order != len(observation):
-            raise ValueError(f'Observation to add must be of size {self._order}')
+        if isinstance(observation, np.ndarray):
+            _obs = observation
+        elif isinstance(observation, list):
+            _obs = np.array(observation)
+        elif isinstance(observation, int) or isinstance(observation, float):
+            _obs = np.array([observation])
+        else:
+            assert False
 
-        self._count += 1  # Not used
-        delta = observation - self._mean
-        self._mean = (1 - self._alpha) * self._mean + self._alpha * observation
-        delta_at_n = observation - self._mean
+        if self._order != _obs.size:
+            raise ValueError(f"To add, observation size {_obs.size} must be {self._order}")
+
+        self._count += 1
+        if self.count == 1: # First entry 
+            self._mean = np.array(_obs)
+            return
+
+        delta = _obs - self._mean
+        self._mean = (1 - self._alpha) * self._mean + self._alpha * _obs
+        delta_at_n = _obs - self._mean
+
+        if self.count == 2: # Second entry 
+            self._Cn = np.outer(delta, delta_at_n)
+            return
+
         self._Cn = (1 - self._alpha) * self._Cn + self._alpha * np.outer(delta, delta_at_n)
 
     def merge(self, other):
