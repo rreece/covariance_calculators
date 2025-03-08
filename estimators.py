@@ -98,9 +98,9 @@ class OnlineCovariance:
         if isinstance(observation, np.ndarray):
             _obs = observation
         elif isinstance(observation, list):
-            _obs = np.array(observation)
+            _obs = np.array(observation, dtype=float)
         elif isinstance(observation, int) or isinstance(observation, float):
-            _obs = np.array([observation])
+            _obs = np.array([observation], dtype=float)
         else:
             assert False
 
@@ -109,10 +109,13 @@ class OnlineCovariance:
 
         self._count += 1
         if self.count == 1: # First entry 
-            self._mean = np.array(_obs)
+            self._mean = np.array(_obs, dtype=float)
             return
 
+        print("DEBUG: _obs = ", _obs)
+        print("DEBUG: _mean = ", self._mean)
         delta = _obs - self._mean
+        print("DEBUG: delta = ", delta)
         self._mean += delta / self.count
         delta_at_n = _obs - self._mean
 
@@ -176,9 +179,9 @@ class EMACovariance(OnlineCovariance):
         if isinstance(observation, np.ndarray):
             _obs = observation
         elif isinstance(observation, list):
-            _obs = np.array(observation)
+            _obs = np.array(observation, dtype=float)
         elif isinstance(observation, int) or isinstance(observation, float):
-            _obs = np.array([observation])
+            _obs = np.array([observation], dtype=float)
         else:
             assert False
 
@@ -187,7 +190,7 @@ class EMACovariance(OnlineCovariance):
 
         self._count += 1
         if self.count == 1: # First entry 
-            self._mean = np.array(_obs)
+            self._mean = np.array(_obs, dtype=float)
             return
 
         delta = _obs - self._mean
