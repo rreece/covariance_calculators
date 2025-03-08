@@ -6,6 +6,7 @@ TODO:
 [x] Sample mean and covariance
 [x] Online mean and covariance
 [x] Exponential moving mean and covariance
+[ ] NaN protection
 [ ] Rolling mean and covariance
 [ ] Shrinkage estimators
 """
@@ -37,7 +38,7 @@ class OnlineCovariance:
     Adapted from:
     https://carstenschelp.github.io/2019/05/12/Online_Covariance_Algorithm_002.html
     """
-    def __init__(self, order):
+    def __init__(self, order, frequency=1):
         """
         Parameters
         ----------
@@ -48,6 +49,7 @@ class OnlineCovariance:
         self._count = 0
         self._mean = np.zeros(order)
         self._Cn = np.zeros((order, order))
+        self.frequency = frequency
         
     @property
     def count(self):
@@ -64,7 +66,7 @@ class OnlineCovariance:
         """        
         if self.count < 1:
             return None
-        return self._mean
+        return self._mean * self.frequency
 
     @property
     def cov(self):
@@ -73,7 +75,7 @@ class OnlineCovariance:
         """
         if self.count < 2:
             return None
-        return self._Cn / (self.count + 1)
+        return self._Cn * (self.frequency / (self.count + 1))
 
     @property
     def corr(self):
@@ -112,10 +114,7 @@ class OnlineCovariance:
             self._mean = np.array(_obs, dtype=float)
             return
 
-#        print("DEBUG: _obs = ", _obs)
-#        print("DEBUG: _mean = ", self._mean)
         delta = _obs - self._mean
-#        print("DEBUG: delta = ", delta)
         self._mean += delta / self.count
         delta_at_n = _obs - self._mean
 
@@ -152,8 +151,8 @@ class OnlineCovariance:
 
 
 class EMACovariance(OnlineCovariance):
-    def __init__(self, order, alpha=None, halflife=None, span=None):
-        super(EMACovariance, self).__init__(order)
+    def __init__(self, order, alpha=None, halflife=None, span=None, frequency=1):
+        super(EMACovariance, self).__init__(order, frequency=frequency)
         _alpha = self._calc_alpha(alpha=alpha, halflife=halflife, span=span)
         assert 0 < _alpha < 1
         self._alpha = _alpha
@@ -173,7 +172,7 @@ class EMACovariance(OnlineCovariance):
         """
         if self.count < 2:
             return None
-        return self._Cn
+        return self._Cn * self.frequency
 
     def add(self, observation):
         if isinstance(observation, np.ndarray):
