@@ -215,6 +215,54 @@ class EMACovariance(OnlineCovariance):
         assert False, "Not implemented; Probably won't."
 
 
+class SMACovariance(OnlineCovariance):
+    """
+    TODO
+    """
+    def __init__(self, order, span=None, frequency=1, dtype=DEFAULT_DTYPE):
+        super(SMACovariance, self).__init__(order, frequency=frequency, dtype=dtype)
+        self._span = span
+        self.queue = list()
+
+    def add(self, observation):
+        """
+        TODO: Test me
+        """
+        if isinstance(observation, np.ndarray):
+            obs = observation
+        elif isinstance(observation, list):
+            obs = np.array(observation, dtype=self.dtype)
+        elif isinstance(observation, int) or isinstance(observation, float):
+            obs = np.array([observation], dtype=self.dtype)
+        else:
+            assert False
+
+        if self._order != obs.size:
+            raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
+
+        if self.count == self._span:
+            assert len(self.queue) == self.count
+
+            # pop oldest from queue
+            obs_old = self.queue.pop(0)
+            assert len(self.queue) == self._span - 1
+
+        # add observation to queue
+        self.queue.append(obs)
+        self._count = len(self.queue)
+        assert 1 <= self._count <= self._span
+
+        # calc covariance over queue 
+        tmp_cov_calc = OnlineCovariance(self._order, frequency=self.frequency, dtype=self.dtype)
+        for _obs in self.queue:
+            tmp_cov_calc.add(_obs)
+
+        # copy the state
+        self._count = tmp_cov_calc._count
+        self._mean = tmp_cov_calc._mean
+        self._Cn = tmp_cov_calc._Cn
+
+
 class RollingCovariance(OnlineCovariance):
     """
     Uses the Welford (1962) one-pass algorithm, also in reverse to
