@@ -52,7 +52,7 @@ fi
 
 #add_to_path ${path_of_this_dir}/scripts
 #add_to_python_path ${path_of_this_dir}/python
-add_to_python_path ${path_of_this_dir}
+add_to_python_path ${path_above_this_dir}
 
 echo "  Done."
 
