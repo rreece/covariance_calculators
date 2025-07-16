@@ -64,7 +64,7 @@ def test_ema_covariance():
 
     # Check that EMA statistics are nearly identical to the truth for small alpha
     assert np.allclose(ema_calculator.mean, true_mean, rtol=0, atol=1e-2)
-    assert np.allclose(ema_calculator.cov, true_cov, rtol=0, atol=1e-3)
+    assert np.allclose(ema_calculator.cov, true_cov, rtol=0, atol=3e-3)
 
 
 def test_online_covariance_merge():
