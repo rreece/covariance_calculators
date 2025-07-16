@@ -84,7 +84,7 @@ def compare_methods(
 
 def test_coverage():
     import matplotlib.pyplot as plt
-    import hepplot as hep
+#    import hepplot as hep
 
     # F(z) = Phi(z) = (1/2) * (1 + erf(z/sqrt(2)))
     # Phi(z) = (1 - alpha/2)   For two-sided
