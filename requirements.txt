@@ -1,0 +1,10 @@
+matplotlib==3.6.3
+mplhep==0.3.26
+mplhep-data==0.0.3
+numpy>=2.2.1
+pandas>=2.0.3
+python-dateutil>=2.8.2
+pytest>=7.4.4
+pytz>=2023.3
+scipy==1.15.3
+six>=1.16.0
