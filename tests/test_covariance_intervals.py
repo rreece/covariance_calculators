@@ -198,18 +198,23 @@ def test_invwishart_precision_interval():
     print("DEBUG: precision_upper =")
     print(precision_upper)
 
-    ref_precision =       np.array([[117.096, -31.865, -12.001],
-                                    [-31.865,  58.596,   4.764],
-                                    [-12.001,   4.764,  37.930]])
+    ref_true_precision =  np.array([[119.9195, -31.3883, -14.0845],
+                                    [-31.3883,  58.5513,   7.0423],
+                                    [-14.0845,   7.0423,  35.2113]])
 
-    ref_precision_lower = np.array([[107.257, -37.515, -16.239],
-                                    [-37.515,  53.671,   1.846],
-                                    [-16.239,   1.846,  34.753]])
+    ref_precision =       np.array([[116.4767, -31.0900, -14.6584],
+                                    [-31.0900,  57.6290,   8.2282],
+                                    [-14.6584,   8.2282,  39.5164]])
 
-    ref_precision_upper = np.array([[127.775, -26.505,  -7.807],
-                                    [-26.505,  63.783,   7.711], 
-                                    [ -7.807,   7.711,  41.496]])
+    ref_precision_lower = np.array([[106.7890, -36.7754, -19.0044],
+                                    [-36.7754,  52.7566,   5.2115],
+                                    [-19.0044,   5.2115,  36.2470]])
 
+    ref_precision_upper = np.array([[126.7990, -25.8054, -10.3630],
+                                    [-25.8054,  62.9215,  11.2530],
+                                    [-10.3630,  11.2530,  43.2194]])
+
+    assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
     assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
     assert np.allclose(precision_lower, ref_precision_lower, rtol=0, atol=1e-3)
     assert np.allclose(precision_upper, ref_precision_upper, rtol=0, atol=1e-3)
