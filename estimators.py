@@ -245,7 +245,7 @@ class SMACovariance(OnlineCovariance):
             assert len(self.queue) == self.count
 
             # pop oldest from queue
-            obs_old = self.queue.pop(0)
+            self.queue.pop(0)  # discard oldest
             assert len(self.queue) == self._span - 1
 
         # add observation to queue
