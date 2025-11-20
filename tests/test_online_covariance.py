@@ -15,7 +15,7 @@ np.set_printoptions(precision=4, suppress=True)
 def test_online_covariance():
 
     # Generate sample data
-    n_samples = 10000
+    n_samples = 30000
     n_features = 3
     true_mean = np.array([1, 2, 3])
     true_cov = np.array([[0.010,  0.005,  0.003],
@@ -47,7 +47,7 @@ def test_online_covariance():
 def test_ema_covariance():
 
     # Generate sample data
-    n_samples = 10000
+    n_samples = 30000
     n_features = 3
     true_mean = np.array([1, 2, 3])
     true_cov = np.array([[0.010,  0.005,  0.003],
@@ -64,7 +64,7 @@ def test_ema_covariance():
 
     # Check that EMA statistics are nearly identical to the truth for small alpha
     assert np.allclose(ema_calculator.mean, true_mean, rtol=0, atol=1e-2)
-    assert np.allclose(ema_calculator.cov, true_cov, rtol=0, atol=3e-3)
+    assert np.allclose(ema_calculator.cov, true_cov, rtol=0, atol=2e-3)
 
 
 def test_online_covariance_merge():
