@@ -78,10 +78,11 @@ class OnlineCovariance:
     def cov(self):
         """
         array_like, The covariance matrix of the added data.
+        Uses n-1 denominator for Bessel's correction.
         """
         if self.count < 2:
             return None
-        return self._Cn * (self.frequency / (self.count + 1))
+        return self._Cn * (self.frequency / (self.count - 1))
 
     @property
     def corr(self):
@@ -253,6 +254,7 @@ class SMACovariance(OnlineCovariance):
         assert 1 <= self._count <= self._span
 
         # calc covariance over queue 
+        # TODO: Would be better here to use a vectorized covariance calculation instead of online
         tmp_cov_calc = OnlineCovariance(self._order, frequency=self.frequency, dtype=self.dtype)
         for _obs in self.queue:
             tmp_cov_calc.add(_obs)
