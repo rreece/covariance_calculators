@@ -40,8 +40,8 @@ def test_online_covariance():
         online_calculator.add(row)
 
     # Check that online statistics are virtually identical to the sample statistics
-    assert np.allclose(online_calculator.mean, mean, rtol=0, atol=1e-5)
-    assert np.allclose(online_calculator.cov, covariance, rtol=0, atol=1e-5)
+    assert np.allclose(online_calculator.mean, mean, rtol=1e-6, atol=0)
+    assert np.allclose(online_calculator.cov, covariance, rtol=1e-6, atol=0)
 
 
 def test_ema_covariance():
