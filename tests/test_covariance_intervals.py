@@ -30,10 +30,10 @@ def test_normal_covariance_interval():
     method = "normal"
     covariance, covariance_lower, covariance_upper = calc_covariance_intervals(data=data, confidence_level=confidence_level, method=method)
 
-#    ref_covariance = np.array([[0.0095,  0.0051,  0.0031],
-#                               [0.0051,  0.0202, -0.0005],
-#                               [0.0031, -0.0005,  0.0285]])
-#    assert np.allclose(covariance, ref_covariance, rtol=0, atol=1e-4)
+    ref_covariance = np.array([[0.0094,  0.0049,  0.0026],
+                               [0.0049,  0.0209, -0.0028],
+                               [0.0026, -0.0028,  0.0280]])
+    assert np.allclose(covariance, ref_covariance, rtol=0, atol=1e-4)
     assert np.allclose(covariance, true_cov, rtol=0, atol=3e-3)
 
 
@@ -79,6 +79,9 @@ def compare_methods(
         print(covariance_lower)
         print("upper:")
         print(covariance_upper)
+
+    assert np.allclose(results["normal"][0], results["wishart"][0], rtol=0, atol=1e-4)
+    assert np.allclose(results["normal"][0], results["bootstrap"][0], rtol=0, atol=1e-4)
 
     return results
 
@@ -215,8 +218,7 @@ def test_invwishart_precision_interval():
                                     [-10.3630,  11.2530,  43.2194]])
 
     assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
-    # TODO: why cannot these bet tighter?
-    assert np.allclose(precision, ref_precision, rtol=8e-2, atol=0)
-    assert np.allclose(precision_lower, ref_precision_lower, rtol=8e-2, atol=0)
-    assert np.allclose(precision_upper, ref_precision_upper, rtol=8e-2, atol=0)
+    assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
+    assert np.allclose(precision_lower, ref_precision_lower, rtol=0, atol=1e-3)
+    assert np.allclose(precision_upper, ref_precision_upper, rtol=0, atol=1e-3)
 
