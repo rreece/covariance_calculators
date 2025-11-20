@@ -6,10 +6,9 @@ Claude AI: Claude 3.5 Sonnet
 Feb 1, 2025
 """
 
-import math
 import numpy as np
 from scipy import stats
-from typing import Tuple, Optional
+from typing import Tuple
 
 from covariance_calculators.estimators import calc_sample_covariance
 
