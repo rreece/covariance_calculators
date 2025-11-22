@@ -117,6 +117,7 @@ def test_coverage():
 
     # HACK to speedup the test because Wishart MC takes a bit
     n_toys = 100
+#    n_toys = 1000
 
     # wishart method experiments 
     wishart_coverages = list()
@@ -216,6 +217,7 @@ def test_invwishart_precision_interval():
     ref_precision_upper = np.array([[126.7990, -25.8054, -10.3630],
                                     [-25.8054,  62.9215,  11.2530],
                                     [-10.3630,  11.2530,  43.2194]])
+
 
     assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
     assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
