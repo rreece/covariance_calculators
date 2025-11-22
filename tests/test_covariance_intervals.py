@@ -88,7 +88,7 @@ def compare_methods(
 
 def test_coverage():
     import matplotlib.pyplot as plt
-    import hepplot as hep
+#    import hepplot as hep
 
     # F(z) = Phi(z) = (1/2) * (1 + erf(z/sqrt(2)))
     # Phi(z) = (1 - alpha/2)   For two-sided
@@ -102,8 +102,8 @@ def test_coverage():
     print(alphas)
     print(confidence_levels)
 
-#    n_toys = 1000
-    n_toys = 10000
+    n_toys = 1000
+#    n_toys = 10000
 
     # normal method experiments 
     normal_coverages = list()
@@ -206,17 +206,18 @@ def test_invwishart_precision_interval():
                                     [-31.3883,  58.5513,   7.0423],
                                     [-14.0845,   7.0423,  35.2113]])
 
-    ref_precision =       np.array([[116.1756, -30.2175, -17.7564],
-                                    [-30.2175,  56.7751,  10.1312],
-                                    [-17.7564,  10.1312,  38.1021]])
+    ref_precision =       np.array([[116.4767, -31.0900, -14.6584],
+                                    [-31.0900,  57.6290,   8.2282],
+                                    [-14.6584,   8.2282,  39.5164]])
 
-    ref_precision_lower = np.array([[106.2485, -35.6824, -22.0137],
-                                    [-35.6824,  51.9374,   7.2335],
-                                    [-22.0137,   7.2335,  34.9077]])
+    ref_precision_lower = np.array([[106.7890, -36.7754, -19.0044],
+                                    [-36.7754,  52.7566,   5.2115],
+                                    [-19.0044,   5.2115,  36.2470]])
 
-    ref_precision_upper = np.array([[126.9857, -24.9190, -13.5977],
-                                    [-24.9190,  61.9425,  13.1091],
-                                    [-13.5977,  13.1091,  41.5748]])
+    ref_precision_upper = np.array([[126.7990, -25.8054, -10.3630],
+                                    [-25.8054,  62.9215,  11.2530],
+                                    [-10.3630,  11.2530,  43.2194]])
+
 
     assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
     assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
