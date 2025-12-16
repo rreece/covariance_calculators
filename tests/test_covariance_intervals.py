@@ -138,7 +138,7 @@ def test_coverage():
     ax.plot(alphas, alphas, color="darkgray", label="Perfect calibration")
     ax.plot(alphas, normal_coverage_alphas, marker='o', color="#1f77b4", label="Asymptotic interval")
     ax.plot(alphas, wishart_coverage_alphas, marker='o', color="red", label="Wishart interval")
-    legend = ax.legend(loc="upper left")
+    ax.legend(loc="upper left")
     plt.tight_layout()
     plt.savefig("coverage.pdf")
     plt.savefig("coverage.png")
