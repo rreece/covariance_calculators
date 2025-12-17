@@ -253,16 +253,21 @@ class SMACovariance(OnlineCovariance):
         self._count = len(self.queue)
         assert 1 <= self._count <= self._span
 
-        # calc covariance over queue 
-        # TODO: Would be better here to use a vectorized covariance calculation instead of online
-        tmp_cov_calc = OnlineCovariance(self._order, frequency=self.frequency, dtype=self.dtype)
-        for _obs in self.queue:
-            tmp_cov_calc.add(_obs)
+        # calc covariance over queue using vectorized numpy operations
+        # Convert queue to numpy array for efficient computation
+        data = np.array(self.queue, dtype=self.dtype)
 
-        # copy the state
-        self._count = tmp_cov_calc._count
-        self._mean = tmp_cov_calc._mean
-        self._Cn = tmp_cov_calc._Cn
+        # Compute mean (annualized by frequency)
+        self._mean = np.mean(data, axis=0)
+
+        # Compute covariance matrix
+        if self._count >= 2:
+            # Use numpy's cov with Bessel's correction (ddof=1 gives n-1 denominator)
+            # _Cn = (n-1) * cov, which is what OnlineCovariance stores
+            self._Cn = np.cov(data, rowvar=False, ddof=1) * (self._count - 1)
+        else:
+            # Single observation: no covariance yet
+            self._Cn = np.zeros((self._order, self._order), dtype=self.dtype)
 
 
 class RollingCovariance(OnlineCovariance):
