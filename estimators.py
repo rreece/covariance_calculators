@@ -158,11 +158,22 @@ class OnlineCovariance:
 
 
 class EMACovariance(OnlineCovariance):
-    def __init__(self, order, alpha=None, halflife=None, span=None, frequency=1, dtype=DEFAULT_DTYPE):
+    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, dtype=DEFAULT_DTYPE):
         super(EMACovariance, self).__init__(order, frequency=frequency, dtype=dtype)
         _alpha = self._calc_alpha(alpha=alpha, halflife=halflife, span=span)
         assert 0 < _alpha < 1
         self._alpha = _alpha
+        # Warmup: accumulate first N observations and initialize with SMA
+        # Default warmup is span // 5 (if provided), otherwise no warmup
+        # Warmup must be 0 (disabled) or >= 2 (need at least 2 observations for covariance)
+        if warmup is not None:
+            assert warmup == 0 or warmup >= 2, f"warmup must be 0 or >= 2, got {warmup}"
+            self._warmup = warmup
+        elif span is not None:
+            self._warmup = max(span // 5, 2)
+        else:
+            self._warmup = 0  # no warmup
+        self._warmup_buffer = []
 
     def _calc_alpha(self, alpha=None, halflife=None, span=None):
         if alpha:
@@ -173,11 +184,26 @@ class EMACovariance(OnlineCovariance):
             return 2.0 / (span + 1)
 
     @property
+    def mean(self):
+        """
+        Override to return None during warmup period.
+        """
+        if self.count < 1:
+            return None
+        # During warmup, return None (not enough data for stable estimate)
+        if self._warmup > 0 and self._count <= self._warmup:
+            return None
+        return self._mean * self.frequency
+
+    @property
     def cov(self):
         """
         Note: denominator has W = 1
         """
         if self.count < 2:
+            return None
+        # During warmup, return None (not enough data for stable estimate)
+        if self._warmup > 0 and self._count <= self._warmup:
             return None
         return self._Cn * self.frequency
 
@@ -195,7 +221,26 @@ class EMACovariance(OnlineCovariance):
             raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
 
         self._count += 1
-        if self.count == 1: # First entry 
+
+        # Warmup phase: accumulate observations and initialize with SMA
+        if self._warmup > 0 and self._count <= self._warmup:
+            self._warmup_buffer.append(obs)
+            if self._count == self._warmup:
+                # Initialize mean and covariance from SMA of warmup period
+                data = np.array(self._warmup_buffer, dtype=self.dtype)
+                self._mean = np.mean(data, axis=0)
+                if len(data) >= 2:
+                    # Initialize _Cn with sample covariance scaled for EMA
+                    # Use (n-1) * cov as the base, then scale by (1-alpha) to
+                    # give appropriate weight relative to future EMA updates
+                    sample_cov = np.cov(data, rowvar=False, ddof=1)
+                    self._Cn = sample_cov * (1 - self._alpha)
+                self._warmup_buffer = []  # free memory
+            return
+
+        # Normal EMA update
+        if self._warmup == 0 and self.count == 1:
+            # No warmup: first entry initializes mean (original behavior)
             self._mean = np.array(obs, dtype=self.dtype)
             return
 
@@ -203,7 +248,8 @@ class EMACovariance(OnlineCovariance):
         self._mean = (1 - self._alpha) * self._mean + self._alpha * obs
         delta_at_n = obs - self._mean
 
-        if self.count == 2: # Second entry 
+        if self._warmup == 0 and self.count == 2:
+            # No warmup: second entry initializes covariance (original behavior)
             self._Cn = np.outer(delta, delta_at_n)
             return
 
