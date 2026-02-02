@@ -42,7 +42,7 @@ else
     source ${venv_name}/bin/activate
     pip install --upgrade pip
     pip install -r requirements.txt
-    git submodule update --init --recursive
+#    git submodule update --init --recursive
 fi
 
 
