@@ -43,6 +43,48 @@ def test_online_covariance():
     assert np.allclose(online_calculator.cov, covariance, rtol=1e-6, atol=0)
 
 
+def test_online_covariance_basic_mean_and_variance():
+    """Test that mean and variance are computed correctly for simple known data."""
+    oc = OnlineCovariance(order=2, frequency=1)
+
+    # Add known data points
+    data = np.array([
+        [1.0, 2.0],
+        [2.0, 4.0],
+        [3.0, 6.0],
+        [4.0, 8.0],
+        [5.0, 10.0],
+    ])
+
+    for row in data:
+        oc.add(row)
+
+    # Expected mean
+    expected_mean = np.array([3.0, 6.0])
+    assert np.allclose(oc.mean, expected_mean, rtol=1e-6)
+
+    # Expected variance (sample variance with n-1 denominator)
+    expected_var = np.array([2.5, 10.0])
+    assert np.allclose(np.diag(oc.cov), expected_var, rtol=1e-6)
+
+
+def test_online_covariance_matches_numpy():
+    """Test that OnlineCovariance matches numpy computation exactly."""
+    np.random.seed(123)
+
+    oc = OnlineCovariance(order=4, frequency=1)
+    data = np.random.randn(200, 4)
+
+    for row in data:
+        oc.add(row)
+
+    expected_mean = np.mean(data, axis=0)
+    expected_cov = np.cov(data, rowvar=False)
+
+    assert np.allclose(oc.mean, expected_mean, rtol=1e-6)
+    assert np.allclose(oc.cov, expected_cov, rtol=1e-6)
+
+
 def test_ema_covariance():
     np.random.seed(42)
 
