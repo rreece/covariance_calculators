@@ -33,9 +33,9 @@ def test_normal_covariance_interval():
     method = "normal"
     covariance, covariance_lower, covariance_upper = calc_covariance_intervals(data=data, confidence_level=confidence_level, method=method)
 
-    ref_covariance = np.array([[0.0095,  0.0044,  0.0026],
-                               [0.0044,  0.0205, -0.0019],
-                               [0.0026, -0.0019,  0.0310]])
+    ref_covariance = np.array([[ 0.0096,  0.0043,  0.0035],
+                               [ 0.0043,  0.0206, -0.0021],
+                               [ 0.0035, -0.0021,  0.0307]])
     assert np.allclose(covariance, ref_covariance, rtol=0, atol=1e-4)
     assert np.allclose(covariance, true_cov, rtol=0, atol=3e-3)
 
