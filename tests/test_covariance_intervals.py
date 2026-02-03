@@ -87,6 +87,20 @@ def compare_methods(
     return results
 
 
+def generate_toy_datasets(n_toys, n_samples, true_cov):
+    """Pre-generate toy datasets for coverage testing."""
+    n_features = true_cov.shape[0]
+    datasets = []
+    for _ in range(n_toys):
+        data = np.random.multivariate_normal(
+            mean=np.zeros(n_features),
+            cov=true_cov,
+            size=n_samples
+        )
+        datasets.append(data)
+    return datasets
+
+
 def test_coverage():
     np.random.seed(42)
     import matplotlib.pyplot as plt
@@ -104,27 +118,34 @@ def test_coverage():
     print(alphas)
     print(confidence_levels)
 
-    n_toys = 1000
-#    n_toys = 10000
+    n_samples = 1000
+    true_cov = np.array([[0.010,  0.005,  0.003],
+                         [0.005,  0.020, -0.002],
+                         [0.003, -0.002,  0.030]])
 
-    # normal method experiments 
+    # Pre-generate datasets for normal method (more toys)
+    n_toys_normal = 1000
+    datasets_normal = generate_toy_datasets(n_toys_normal, n_samples, true_cov)
+
+    # Pre-generate datasets for wishart method (fewer toys for speed)
+    # Use a subset of the normal datasets for fair comparison
+    n_toys_wishart = 100
+    datasets_wishart = datasets_normal[:n_toys_wishart]
+
+    # normal method experiments
     normal_coverages = list()
     for cl in confidence_levels:
-        coverage = run_coverage_test(confidence_level=cl, n_toys=n_toys, method="normal")
+        coverage = run_coverage_test(confidence_level=cl, method="normal", datasets=datasets_normal, true_cov=true_cov)
         avg_coverage = np.average(coverage)
         normal_coverages.append(avg_coverage)
 
     normal_coverage_alphas = [ 1.0 - _c for _c in normal_coverages ]
     print(normal_coverage_alphas)
 
-    # HACK to speedup the test because Wishart MC takes a bit
-    n_toys = 100
-#    n_toys = 1000
-
-    # wishart method experiments 
+    # wishart method experiments (uses same data as normal, just fewer samples)
     wishart_coverages = list()
     for cl in confidence_levels:
-        coverage = run_coverage_test(confidence_level=cl, n_toys=n_toys, method="wishart")
+        coverage = run_coverage_test(confidence_level=cl, method="wishart", datasets=datasets_wishart, true_cov=true_cov)
         avg_coverage = np.average(coverage)
         wishart_coverages.append(avg_coverage)
 
@@ -146,23 +167,21 @@ def test_coverage():
     plt.savefig("coverage.png")
 
 
-def run_coverage_test(confidence_level=0.95, n_toys=200, method="normal"):
-    n_samples = 1000
-    n_features = 3
-    true_cov = np.array([[0.010,  0.005,  0.003],
-                         [0.005,  0.020, -0.002],
-                         [0.003, -0.002,  0.030]])
+def run_coverage_test(confidence_level=0.95, method="normal", datasets=None, true_cov=None):
+    """
+    Run coverage test using pre-generated datasets.
 
+    Args:
+        confidence_level: Confidence level for intervals
+        method: Method for calculating intervals ("normal", "wishart", etc.)
+        datasets: List of pre-generated data arrays
+        true_cov: True covariance matrix used to generate the data
+    """
+    n_features = true_cov.shape[0]
+    n_toys = len(datasets)
     n_accept = np.zeros((n_features, n_features))
 
-    for _ in range(n_toys):
-        # Generate sample data
-        data = np.random.multivariate_normal(mean=np.zeros(n_features),
-                                       cov=true_cov,
-                                       size=n_samples)
-
-        # TODO: Use the same pseudo data with all methods
-
+    for data in datasets:
         # calculate the covariance
         covariance1 = calc_sample_covariance(data)
 
