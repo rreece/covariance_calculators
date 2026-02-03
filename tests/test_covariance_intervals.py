@@ -9,11 +9,11 @@ from covariance_calculators.estimators import calc_sample_covariance
 from covariance_calculators.intervals import calc_covariance_intervals, calc_precision_intervals
 
 
-np.random.seed(42)
 np.set_printoptions(precision=4, suppress=True)
 
 
 def test_normal_covariance_interval():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 1000
@@ -38,6 +38,7 @@ def test_normal_covariance_interval():
 
 
 def test_compare_methods():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 1000
@@ -86,7 +87,22 @@ def compare_methods(
     return results
 
 
+def generate_toy_datasets(n_toys, n_samples, true_cov):
+    """Pre-generate toy datasets for coverage testing."""
+    n_features = true_cov.shape[0]
+    datasets = []
+    for _ in range(n_toys):
+        data = np.random.multivariate_normal(
+            mean=np.zeros(n_features),
+            cov=true_cov,
+            size=n_samples
+        )
+        datasets.append(data)
+    return datasets
+
+
 def test_coverage():
+    np.random.seed(42)
     import matplotlib.pyplot as plt
 #    import hepplot as hep
 
@@ -102,27 +118,34 @@ def test_coverage():
     print(alphas)
     print(confidence_levels)
 
-    n_toys = 1000
-#    n_toys = 10000
+    n_samples = 1000
+    true_cov = np.array([[0.010,  0.005,  0.003],
+                         [0.005,  0.020, -0.002],
+                         [0.003, -0.002,  0.030]])
 
-    # normal method experiments 
+    # Pre-generate datasets for normal method (more toys)
+    n_toys_normal = 1000
+    datasets_normal = generate_toy_datasets(n_toys_normal, n_samples, true_cov)
+
+    # Pre-generate datasets for wishart method (fewer toys for speed)
+    # Use a subset of the normal datasets for fair comparison
+    n_toys_wishart = 100
+    datasets_wishart = datasets_normal[:n_toys_wishart]
+
+    # normal method experiments
     normal_coverages = list()
     for cl in confidence_levels:
-        coverage = run_coverage_test(confidence_level=cl, n_toys=n_toys, method="normal")
+        coverage = run_coverage_test(confidence_level=cl, method="normal", datasets=datasets_normal, true_cov=true_cov)
         avg_coverage = np.average(coverage)
         normal_coverages.append(avg_coverage)
 
     normal_coverage_alphas = [ 1.0 - _c for _c in normal_coverages ]
     print(normal_coverage_alphas)
 
-    # HACK to speedup the test because Wishart MC takes a bit
-    n_toys = 100
-#    n_toys = 1000
-
-    # wishart method experiments 
+    # wishart method experiments (uses same data as normal, just fewer samples)
     wishart_coverages = list()
     for cl in confidence_levels:
-        coverage = run_coverage_test(confidence_level=cl, n_toys=n_toys, method="wishart")
+        coverage = run_coverage_test(confidence_level=cl, method="wishart", datasets=datasets_wishart, true_cov=true_cov)
         avg_coverage = np.average(coverage)
         wishart_coverages.append(avg_coverage)
 
@@ -144,23 +167,21 @@ def test_coverage():
     plt.savefig("coverage.png")
 
 
-def run_coverage_test(confidence_level=0.95, n_toys=200, method="normal"):
-    n_samples = 1000
-    n_features = 3
-    true_cov = np.array([[0.010,  0.005,  0.003],
-                         [0.005,  0.020, -0.002],
-                         [0.003, -0.002,  0.030]])
+def run_coverage_test(confidence_level=0.95, method="normal", datasets=None, true_cov=None):
+    """
+    Run coverage test using pre-generated datasets.
 
+    Args:
+        confidence_level: Confidence level for intervals
+        method: Method for calculating intervals ("normal", "wishart", etc.)
+        datasets: List of pre-generated data arrays
+        true_cov: True covariance matrix used to generate the data
+    """
+    n_features = true_cov.shape[0]
+    n_toys = len(datasets)
     n_accept = np.zeros((n_features, n_features))
 
-    for _ in range(n_toys):
-        # Generate sample data
-        data = np.random.multivariate_normal(mean=np.zeros(n_features),
-                                       cov=true_cov,
-                                       size=n_samples)
-
-        # TODO: Use the same pseudo data with all methods
-
+    for data in datasets:
         # calculate the covariance
         covariance1 = calc_sample_covariance(data)
 
@@ -176,6 +197,7 @@ def run_coverage_test(confidence_level=0.95, n_toys=200, method="normal"):
 
 
 def test_invwishart_precision_interval():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 1000
@@ -206,18 +228,17 @@ def test_invwishart_precision_interval():
                                     [-31.3883,  58.5513,   7.0423],
                                     [-14.0845,   7.0423,  35.2113]])
 
-    ref_precision =       np.array([[116.4767, -31.0900, -14.6584],
-                                    [-31.0900,  57.6290,   8.2282],
-                                    [-14.6584,   8.2282,  39.5164]])
+    ref_precision =       np.array([[126.2352, -31.4338, -15.0995],
+                                    [-31.4338,  56.4095,   8.7015],
+                                    [-15.0995,   8.7015,  38.04  ]])
 
-    ref_precision_lower = np.array([[106.7890, -36.7754, -19.0044],
-                                    [-36.7754,  52.7566,   5.2115],
-                                    [-19.0044,   5.2115,  36.2470]])
+    ref_precision_lower = np.array([[115.6366, -37.122 , -19.5615],
+                                    [-37.122 ,  51.5681,   5.8099],
+                                    [-19.5615,   5.8099,  34.8544]])
 
-    ref_precision_upper = np.array([[126.7990, -25.8054, -10.3630],
-                                    [-25.8054,  62.9215,  11.2530],
-                                    [-10.3630,  11.2530,  43.2194]])
-
+    ref_precision_upper = np.array([[137.5604, -25.8957, -10.7901],
+                                    [-25.8957,  61.517 ,  11.6624],
+                                    [-10.7901,  11.6624,  41.4909]])
 
     assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
     assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
