@@ -9,11 +9,11 @@ from covariance_calculators.estimators import calc_sample_covariance
 from covariance_calculators.intervals import calc_covariance_intervals, calc_precision_intervals
 
 
-np.random.seed(42)
 np.set_printoptions(precision=4, suppress=True)
 
 
 def test_normal_covariance_interval():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 1000
@@ -38,6 +38,7 @@ def test_normal_covariance_interval():
 
 
 def test_compare_methods():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 1000
@@ -87,6 +88,7 @@ def compare_methods(
 
 
 def test_coverage():
+    np.random.seed(42)
     import matplotlib.pyplot as plt
 #    import hepplot as hep
 
@@ -176,6 +178,7 @@ def run_coverage_test(confidence_level=0.95, n_toys=200, method="normal"):
 
 
 def test_invwishart_precision_interval():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 1000

@@ -7,11 +7,11 @@ import numpy as np
 from covariance_calculators.estimators import calc_sample_mean, calc_sample_covariance, OnlineCovariance, EMACovariance
 
 
-np.random.seed(42)
 np.set_printoptions(precision=4, suppress=True)
 
 
 def test_online_covariance():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 30000
@@ -44,6 +44,7 @@ def test_online_covariance():
 
 
 def test_ema_covariance():
+    np.random.seed(42)
 
     # Generate sample data
     n_samples = 30000
@@ -67,6 +68,7 @@ def test_ema_covariance():
 
 
 def test_online_covariance_merge():
+    np.random.seed(42)
 
     # Generate sample data with two differently correllated datasets
     n_samples = 10000
