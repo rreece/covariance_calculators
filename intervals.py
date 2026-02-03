@@ -129,10 +129,11 @@ def calc_precision_intervals(
     data: np.ndarray = None,
     confidence_level: float = 0.95,
     method: str = 'invwishart',
+    random_state=None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate confidence intervals for sample precision matrix.
-    
+
     Parameters:
     -----------
     precision : np.ndarray
@@ -145,7 +146,9 @@ def calc_precision_intervals(
         Confidence level (default: 0.95)
     method : str
         Method to use ('invwishart')
-        
+    random_state : int, Generator, or RandomState, optional
+        Seed or random state for reproducibility of Monte Carlo sampling
+
     Returns:
     --------
     precision : np.ndarray
@@ -181,7 +184,7 @@ def calc_precision_intervals(
 
         # Generate samples to estimate quantiles
         n_samples_invwishart = 10000
-        invwishart_samples = invwishart_dist.rvs(n_samples_invwishart)
+        invwishart_samples = invwishart_dist.rvs(n_samples_invwishart, random_state=random_state)
 
         # Calculate element-wise quantiles (ppf)
         ci_lower = np.zeros((n_features, n_features))

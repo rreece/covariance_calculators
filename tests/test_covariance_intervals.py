@@ -13,7 +13,10 @@ np.set_printoptions(precision=4, suppress=True)
 
 
 def test_normal_covariance_interval():
-    np.random.seed(42)
+    # Use default_rng instead of np.random.seed for cross-platform reproducibility.
+    # The legacy RandomState API can produce different results across platforms/NumPy versions.
+    # np.random.seed(42)
+    rng = np.random.default_rng(42)
 
     # Generate sample data
     n_samples = 1000
@@ -21,7 +24,7 @@ def test_normal_covariance_interval():
     true_cov = np.array([[0.010,  0.005,  0.003],
                          [0.005,  0.020, -0.002],
                          [0.003, -0.002,  0.030]])
-    data = np.random.multivariate_normal(mean=np.zeros(n_features),
+    data = rng.multivariate_normal(mean=np.zeros(n_features),
                                    cov=true_cov,
                                    size=n_samples)
 
@@ -30,15 +33,18 @@ def test_normal_covariance_interval():
     method = "normal"
     covariance, covariance_lower, covariance_upper = calc_covariance_intervals(data=data, confidence_level=confidence_level, method=method)
 
-    ref_covariance = np.array([[0.0094,  0.0049,  0.0026],
-                               [0.0049,  0.0209, -0.0028],
-                               [0.0026, -0.0028,  0.0280]])
+    ref_covariance = np.array([[0.0095,  0.0044,  0.0026],
+                               [0.0044,  0.0205, -0.0019],
+                               [0.0026, -0.0019,  0.0310]])
     assert np.allclose(covariance, ref_covariance, rtol=0, atol=1e-4)
     assert np.allclose(covariance, true_cov, rtol=0, atol=3e-3)
 
 
 def test_compare_methods():
-    np.random.seed(42)
+    # Use default_rng instead of np.random.seed for cross-platform reproducibility.
+    # The legacy RandomState API can produce different results across platforms/NumPy versions.
+    # np.random.seed(42)
+    rng = np.random.default_rng(42)
 
     # Generate sample data
     n_samples = 1000
@@ -46,7 +52,7 @@ def test_compare_methods():
     true_cov = np.array([[0.010,  0.005,  0.003],
                          [0.005,  0.020, -0.002],
                          [0.003, -0.002,  0.030]])
-    data = np.random.multivariate_normal(mean=np.zeros(n_features),
+    data = rng.multivariate_normal(mean=np.zeros(n_features),
                                    cov=true_cov,
                                    size=n_samples)
 
@@ -87,12 +93,12 @@ def compare_methods(
     return results
 
 
-def generate_toy_datasets(n_toys, n_samples, true_cov):
+def generate_toy_datasets(n_toys, n_samples, true_cov, rng):
     """Pre-generate toy datasets for coverage testing."""
     n_features = true_cov.shape[0]
     datasets = []
     for _ in range(n_toys):
-        data = np.random.multivariate_normal(
+        data = rng.multivariate_normal(
             mean=np.zeros(n_features),
             cov=true_cov,
             size=n_samples
@@ -102,7 +108,10 @@ def generate_toy_datasets(n_toys, n_samples, true_cov):
 
 
 def test_coverage():
-    np.random.seed(42)
+    # Use default_rng instead of np.random.seed for cross-platform reproducibility.
+    # The legacy RandomState API can produce different results across platforms/NumPy versions.
+    # np.random.seed(42)
+    rng = np.random.default_rng(42)
     import matplotlib.pyplot as plt
 #    import hepplot as hep
 
@@ -125,7 +134,7 @@ def test_coverage():
 
     # Pre-generate datasets for normal method (more toys)
     n_toys_normal = 1000
-    datasets_normal = generate_toy_datasets(n_toys_normal, n_samples, true_cov)
+    datasets_normal = generate_toy_datasets(n_toys_normal, n_samples, true_cov, rng)
 
     # Pre-generate datasets for wishart method (fewer toys for speed)
     # Use a subset of the normal datasets for fair comparison
@@ -197,7 +206,10 @@ def run_coverage_test(confidence_level=0.95, method="normal", datasets=None, tru
 
 
 def test_invwishart_precision_interval():
-    np.random.seed(42)
+    # Use default_rng instead of np.random.seed for cross-platform reproducibility.
+    # The legacy RandomState API can produce different results across platforms/NumPy versions.
+    # np.random.seed(42)
+    rng = np.random.default_rng(42)
 
     # Generate sample data
     n_samples = 1000
@@ -206,14 +218,15 @@ def test_invwishart_precision_interval():
                          [0.005,  0.020, -0.002],
                          [0.003, -0.002,  0.030]])
     true_precision = np.linalg.inv(true_cov)
-    data = np.random.multivariate_normal(mean=np.zeros(n_features),
+    data = rng.multivariate_normal(mean=np.zeros(n_features),
                                    cov=true_cov,
                                    size=n_samples)
 
     # Calculate confidence interval
+    # Use random_state for reproducible Monte Carlo sampling in invwishart method
     confidence_level = 0.95
     method = "invwishart"
-    precision, precision_lower, precision_upper = calc_precision_intervals(data=data, confidence_level=confidence_level, method=method)
+    precision, precision_lower, precision_upper = calc_precision_intervals(data=data, confidence_level=confidence_level, method=method, random_state=123)
 
     print("DEBUG: true_precision =")
     print(true_precision)
@@ -228,17 +241,17 @@ def test_invwishart_precision_interval():
                                     [-31.3883,  58.5513,   7.0423],
                                     [-14.0845,   7.0423,  35.2113]])
 
-    ref_precision =       np.array([[126.2352, -31.4338, -15.0995],
-                                    [-31.4338,  56.4095,   8.7015],
-                                    [-15.0995,   8.7015,  38.04  ]])
+    ref_precision =       np.array([[121.9875, -27.4081, -12.0025],
+                                    [-27.4081,  55.1484,   5.6767],
+                                    [-12.0025,   5.6767,  33.6392]])
 
-    ref_precision_lower = np.array([[115.6366, -37.122 , -19.5615],
-                                    [-37.122 ,  51.5681,   5.8099],
-                                    [-19.5615,   5.8099,  34.8544]])
+    ref_precision_lower = np.array([[111.5952, -32.9010, -16.1478],
+                                    [-32.9010,  50.4932,   3.0140],
+                                    [-16.1478,   3.0140,  30.8723]])
 
-    ref_precision_upper = np.array([[137.5604, -25.8957, -10.7901],
-                                    [-25.8957,  61.517 ,  11.6624],
-                                    [-10.7901,  11.6624,  41.4909]])
+    ref_precision_upper = np.array([[133.2731, -22.2734,  -8.0867],
+                                    [-22.2734,  60.1137,   8.4046],
+                                    [ -8.0867,   8.4046,  36.7472]])
 
     assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
     assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
