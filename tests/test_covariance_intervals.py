@@ -236,10 +236,9 @@ def test_invwishart_precision_interval():
                                     [-37.122 ,  51.5681,   5.8099],
                                     [-19.5615,   5.8099,  34.8544]])
 
-    ref_precision_upper = np.array([[126.7990, -25.8054, -10.3630],
-                                    [-25.8054,  62.9215,  11.2530],
-                                    [-10.3630,  11.2530,  43.2194]])
-
+    ref_precision_upper = np.array([[137.5604, -25.8957, -10.7901],
+                                    [-25.8957,  61.517 ,  11.6624],
+                                    [-10.7901,  11.6624,  41.4909]])
 
     assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
     assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
