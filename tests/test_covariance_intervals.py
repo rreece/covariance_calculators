@@ -3,13 +3,19 @@ test_covariance_intervals.py
 """
 
 import math
+import matplotlib as mpl
+import matplotlib.pyplot as plt
 import numpy as np
+import sys
 
 from covariance_calculators.estimators import calc_sample_covariance
 from covariance_calculators.intervals import calc_covariance_intervals, calc_precision_intervals
 
 
+mpl.use("Agg")
 np.set_printoptions(precision=4, suppress=True)
+
+IS_MACOS = sys.platform == "darwin"
 
 
 def test_normal_covariance_interval():
@@ -33,9 +39,16 @@ def test_normal_covariance_interval():
     method = "normal"
     covariance, covariance_lower, covariance_upper = calc_covariance_intervals(data=data, confidence_level=confidence_level, method=method)
 
-    ref_covariance = np.array([[ 0.0096,  0.0043,  0.0035],
-                               [ 0.0043,  0.0206, -0.0021],
-                               [ 0.0035, -0.0021,  0.0307]])
+    if IS_MACOS:
+        ref_covariance = np.array([[ 0.0095,  0.0044,  0.0026],
+                                   [ 0.0044,  0.0205, -0.0019],
+                                   [ 0.0026, -0.0019,  0.031 ]])
+
+    else:
+        ref_covariance = np.array([[ 0.0096,  0.0043,  0.0035],
+                                   [ 0.0043,  0.0206, -0.0021],
+                                   [ 0.0035, -0.0021,  0.0307]])
+
     assert np.allclose(covariance, ref_covariance, rtol=0, atol=1e-4)
     assert np.allclose(covariance, true_cov, rtol=0, atol=3e-3)
 
@@ -112,7 +125,6 @@ def test_coverage():
     # The legacy RandomState API can produce different results across platforms/NumPy versions.
     # np.random.seed(42)
     rng = np.random.default_rng(42)
-    import matplotlib.pyplot as plt
 #    import hepplot as hep
 
     # F(z) = Phi(z) = (1/2) * (1 + erf(z/sqrt(2)))
@@ -237,24 +249,48 @@ def test_invwishart_precision_interval():
     print("DEBUG: precision_upper =")
     print(precision_upper)
 
-    ref_true_precision =  np.array([[119.9195, -31.3883, -14.0845],
-                                    [-31.3883,  58.5513,   7.0423],
-                                    [-14.0845,   7.0423,  35.2113]])
+    if IS_MACOS:
+        ref_true_precision =  np.array([[119.9195, -31.3883, -14.0845],
+                                        [-31.3883,  58.5513,   7.0423],
+                                        [-14.0845,   7.0423,  35.2113]])
 
-    ref_precision =       np.array([[121.1682, -26.7907, -15.5737],
-                                    [-26.7907,  54.8474,   6.7126],
-                                    [-15.5737,   6.7126,  34.7596]])
+        ref_precision =       np.array([[121.9875, -27.4081, -12.0025],
+                                        [-27.4081,  55.1484,   5.6767],
+                                        [-12.0025,   5.6767,  33.6392]])
 
-    ref_precision_lower = np.array([[110.8457, -32.2382, -19.8126],
-                                    [-32.2382,  50.2181,   4.0009],
-                                    [-19.8126,   4.0009,  31.8917]])
+        ref_precision_lower = np.array([[111.5952, -32.901,  -16.1478],
+                                        [-32.901,   50.4932,   3.014 ],
+                                        [-16.1478,   3.014,   30.8723]])
 
-    ref_precision_upper = np.array([[132.378,  -21.7021, -11.5654],
-                                    [-21.7021,  59.7716,   9.4871],
-                                    [-11.5654,   9.4871,  37.9899]])
+        ref_precision_upper = np.array([[133.2731, -22.2734,  -8.0867],
+                                        [-22.2734,  60.1137,   8.4046],
+                                        [ -8.0867,   8.4046,  36.7472]])
 
-    assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
-    assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
-    assert np.allclose(precision_lower, ref_precision_lower, rtol=0, atol=1e-3)
-    assert np.allclose(precision_upper, ref_precision_upper, rtol=0, atol=1e-3)
+        assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
+        assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
+        assert np.allclose(precision_lower, ref_precision_lower, rtol=0, atol=1e-3)
+        assert np.allclose(precision_upper, ref_precision_upper, rtol=0, atol=1e-3)
+
+    else:
+        ref_true_precision =  np.array([[119.9195, -31.3883, -14.0845],
+                                        [-31.3883,  58.5513,   7.0423],
+                                        [-14.0845,   7.0423,  35.2113]])
+
+        ref_precision =       np.array([[121.1682, -26.7907, -15.5737],
+                                        [-26.7907,  54.8474,   6.7126],
+                                        [-15.5737,   6.7126,  34.7596]])
+
+        ref_precision_lower = np.array([[110.8457, -32.2382, -19.8126],
+                                        [-32.2382,  50.2181,   4.0009],
+                                        [-19.8126,   4.0009,  31.8917]])
+
+        ref_precision_upper = np.array([[132.378,  -21.7021, -11.5654],
+                                        [-21.7021,  59.7716,   9.4871],
+                                        [-11.5654,   9.4871,  37.9899]])
+
+        assert np.allclose(true_precision, ref_true_precision, rtol=0, atol=1e-4)
+        assert np.allclose(precision, ref_precision, rtol=0, atol=1e-3)
+        assert np.allclose(precision_lower, ref_precision_lower, rtol=0, atol=1e-3)
+        assert np.allclose(precision_upper, ref_precision_upper, rtol=0, atol=1e-3)
+
 
