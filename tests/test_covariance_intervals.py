@@ -138,7 +138,7 @@ def test_coverage(methods=None):
     # np.random.seed(42)
     rng = np.random.default_rng(42)
     # import hepplot to style plot
-    import hepplot as hep  # noqa
+#    import hepplot as hep  # noqa
 
     # Default to all methods
     if methods is None:
