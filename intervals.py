@@ -18,7 +18,8 @@ def calc_covariance_intervals(
     n_samples: int = None,
     data: np.ndarray = None,
     confidence_level: float = 0.95,
-    method: str = 'normal',
+    method: str = 'asymptotic',
+    random_state = None,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Calculate confidence intervals for sample covariance matrix using unbiased estimators.
@@ -34,7 +35,9 @@ def calc_covariance_intervals(
     confidence_level : float
         Confidence level (default: 0.95)
     method : str
-        Method to use ('normal', 'wishart', or 'bootstrap')
+        Method to use ('asymptotic', 'wishart', 'bootstrap', or 'parametric_mc')
+    random_state : int, Generator, or RandomState, optional
+        Seed or random state for reproducibility of Monte Carlo sampling
         
     Returns:
     --------
@@ -62,7 +65,7 @@ def calc_covariance_intervals(
 
     alpha = 1.0 - confidence_level
 
-    if method == 'normal':
+    if method == 'asymptotic':
         # Calculate standard errors using asymptotic formula with n-1 correction
         z_score = stats.norm.ppf(1 - alpha/2)
         se_matrix = np.zeros((n_features, n_features))
@@ -116,9 +119,28 @@ def calc_covariance_intervals(
         # Calculate percentile intervals
         ci_lower = np.percentile(bootstrap_covs, 100 * alpha/2, axis=0)
         ci_upper = np.percentile(bootstrap_covs, 100 * (1 - alpha/2), axis=0)
-    
+
+    elif method == 'parametric_mc':
+        # Parametric Monte Carlo: generate fresh samples from N(0, estimated_cov)
+        # This should converge to Wishart results for normal data
+        rng = np.random.default_rng(random_state)
+        n_mc = 2000
+        mc_covs = np.zeros((n_mc, n_features, n_features))
+
+        for i in range(n_mc):
+            # Generate fresh sample from fitted multivariate normal
+            mc_sample = rng.multivariate_normal(
+                mean=np.zeros(n_features),
+                cov=covariance,
+                size=n_samples
+            )
+            mc_covs[i] = np.cov(mc_sample, rowvar=False, bias=False)
+
+        ci_lower = np.percentile(mc_covs, 100 * alpha/2, axis=0)
+        ci_upper = np.percentile(mc_covs, 100 * (1 - alpha/2), axis=0)
+
     else:
-        raise ValueError("Method must be either 'normal', 'wishart', or 'bootstrap'")
+        raise ValueError("Method must be 'asymptotic', 'wishart', 'bootstrap', or 'parametric_mc'")
         
     return covariance, ci_lower, ci_upper
 
