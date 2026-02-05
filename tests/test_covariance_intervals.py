@@ -125,7 +125,8 @@ def test_coverage():
     # The legacy RandomState API can produce different results across platforms/NumPy versions.
     # np.random.seed(42)
     rng = np.random.default_rng(42)
-#    import hepplot as hep
+    # import hepplot to style plot
+#    import hepplot as hep  # noqa
 
     # F(z) = Phi(z) = (1/2) * (1 + erf(z/sqrt(2)))
     # Phi(z) = (1 - alpha/2)   For two-sided
@@ -140,17 +141,20 @@ def test_coverage():
     print(confidence_levels)
 
     n_samples = 1000
+#    n_samples = 10000
     true_cov = np.array([[0.010,  0.005,  0.003],
                          [0.005,  0.020, -0.002],
                          [0.003, -0.002,  0.030]])
 
     # Pre-generate datasets for normal method (more toys)
     n_toys_normal = 1000
+#    n_toys_normal = 10000
     datasets_normal = generate_toy_datasets(n_toys_normal, n_samples, true_cov, rng)
 
     # Pre-generate datasets for wishart method (fewer toys for speed)
     # Use a subset of the normal datasets for fair comparison
     n_toys_wishart = 100
+#    n_toys_wishart = 10000
     datasets_wishart = datasets_normal[:n_toys_wishart]
 
     # normal method experiments
