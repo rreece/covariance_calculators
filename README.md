@@ -31,8 +31,6 @@ and
 \hat{\sigma}^2 = \frac{1}{n} \sum_{i=1}^{n} ( x_i - \hat{\mu} )^2
 ```
 
-See Wikipedia: [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem#Estimation_of_variance).
-
 Note the unbiased sample variance is
 
 ```math
@@ -223,8 +221,8 @@ See also:
 
 ## References
 
--   Cowan (1998)
--   James (2006)
--   <https://adamheins.com/blog/wishart-confidence-intervals>
--   <https://en.wikipedia.org/wiki/Cochran%27s_theorem>
+-   Cowan, G. (1998). *Statistical Data Analysis*. Clarendon Press.
+-   James, F. (2006). *Statistical Methods in Experimental Particle Physics* (2nd ed.). World Scientific.
+-   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
+-   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem), *Wikipedia*
 
