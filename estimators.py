@@ -43,27 +43,49 @@ class OnlineCovariance:
     Adapted from:
     https://carstenschelp.github.io/2019/05/12/Online_Covariance_Algorithm_002.html
     """
-    def __init__(self, order, frequency=1, dtype=DEFAULT_DTYPE):
+    def __init__(self, order, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
         """
         Parameters
         ----------
         order: int, The order (=="number of features") of the incrementally added
         dataset and of the resulting covariance matrix.
+        geometric: bool, If True, transform observations to log returns via log(1 + r)
+        before processing. Gives CAGR-style mean and multiplicative-process covariance.
         """
         self._order = order
         self._count = 0
         self._mean = np.zeros(order, dtype=dtype)
         self._Cn = np.zeros((order, order), dtype=dtype)
         self.frequency = frequency
+        self.geometric = geometric
         self.dtype = dtype
         
+    def _prepare_observation(self, observation):
+        """
+        Convert observation to numpy array, validate size,
+        and optionally apply log transform for geometric mode.
+        """
+        if isinstance(observation, np.ndarray):
+            obs = observation
+        elif isinstance(observation, list):
+            obs = np.array(observation, dtype=self.dtype)
+        elif isinstance(observation, (int, float)):
+            obs = np.array([observation], dtype=self.dtype)
+        else:
+            assert False
+        if self._order != obs.size:
+            raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
+        if self.geometric:
+            obs = np.log1p(obs)
+        return obs
+
     @property
     def count(self):
         """
         int, The number of observations that has been added
         to this instance of OnlineCovariance.
         """
-        return self._count 
+        return self._count
    
     @property
     def mean(self):
@@ -99,25 +121,15 @@ class OnlineCovariance:
     def add(self, observation):
         """
         Add the given observation to this object.
-        
+
         Parameters
         ----------
         observation: array_like, The observation to add.
         """
-        if isinstance(observation, np.ndarray):
-            obs = observation
-        elif isinstance(observation, list):
-            obs = np.array(observation, dtype=self.dtype)
-        elif isinstance(observation, int) or isinstance(observation, float):
-            obs = np.array([observation], dtype=self.dtype)
-        else:
-            assert False
-
-        if self._order != obs.size:
-            raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
+        obs = self._prepare_observation(observation)
 
         self._count += 1
-        if self.count == 1: # First entry 
+        if self.count == 1: # First entry
             self._mean = np.array(obs, dtype=self.dtype)
             return
 
@@ -158,8 +170,8 @@ class OnlineCovariance:
 
 
 class EMACovariance(OnlineCovariance):
-    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, dtype=DEFAULT_DTYPE):
-        super(EMACovariance, self).__init__(order, frequency=frequency, dtype=dtype)
+    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
+        super(EMACovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
         _alpha = self._calc_alpha(alpha=alpha, halflife=halflife, span=span)
         assert 0 < _alpha < 1
         self._alpha = _alpha
@@ -208,17 +220,7 @@ class EMACovariance(OnlineCovariance):
         return self._Cn * self.frequency
 
     def add(self, observation):
-        if isinstance(observation, np.ndarray):
-            obs = observation
-        elif isinstance(observation, list):
-            obs = np.array(observation, dtype=self.dtype)
-        elif isinstance(observation, int) or isinstance(observation, float):
-            obs = np.array([observation], dtype=self.dtype)
-        else:
-            assert False
-
-        if self._order != obs.size:
-            raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
+        obs = self._prepare_observation(observation)
 
         self._count += 1
 
@@ -266,26 +268,13 @@ class SMACovariance(OnlineCovariance):
     """
     TODO
     """
-    def __init__(self, order, span=None, frequency=1, dtype=DEFAULT_DTYPE):
-        super(SMACovariance, self).__init__(order, frequency=frequency, dtype=dtype)
+    def __init__(self, order, span=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
+        super(SMACovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
         self._span = span
         self.queue = list()
 
     def add(self, observation):
-        """
-        TODO: Test me
-        """
-        if isinstance(observation, np.ndarray):
-            obs = observation
-        elif isinstance(observation, list):
-            obs = np.array(observation, dtype=self.dtype)
-        elif isinstance(observation, int) or isinstance(observation, float):
-            obs = np.array([observation], dtype=self.dtype)
-        else:
-            assert False
-
-        if self._order != obs.size:
-            raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
+        obs = self._prepare_observation(observation)
 
         if self.count == self._span:
             assert len(self.queue) == self.count
@@ -323,28 +312,17 @@ class RollingCovariance(OnlineCovariance):
 
     See:
     https://stackoverflow.com/questions/30876298/removing-a-prior-sample-while-using-welfords-method-for-computing-single-pass-v
-    
+
+    TODO: Don't think this algorithm is numerically stable.
+    Maybe we should just remove it.
     """
-    def __init__(self, order, span=None, frequency=1, dtype=DEFAULT_DTYPE):
-        super(RollingCovariance, self).__init__(order, frequency=frequency, dtype=dtype)
+    def __init__(self, order, span=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
+        super(RollingCovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
         self._span = span
         self.queue = list()
 
     def add(self, observation):
-        """
-        TODO: test me
-        """
-        if isinstance(observation, np.ndarray):
-            obs = observation
-        elif isinstance(observation, list):
-            obs = np.array(observation, dtype=self.dtype)
-        elif isinstance(observation, int) or isinstance(observation, float):
-            obs = np.array([observation], dtype=self.dtype)
-        else:
-            assert False
-
-        if self._order != obs.size:
-            raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
+        obs = self._prepare_observation(observation)
 
         if self.count == self._span:
             assert len(self.queue) == self.count
