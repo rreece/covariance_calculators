@@ -5,15 +5,103 @@
 Implementations of covariance estimators and confidence intervals
 
 
+## Introduction
+
+This package provides numerically stable, online (streaming) estimators
+for means, covariance matrices, and correlation matrices,
+along with methods for computing confidence intervals on the covariance estimates.
+
+Estimators included:
+
+-   `OnlineCovariance` --- Welford's one-pass algorithm for incremental mean and covariance estimation, with support for merging independent estimators.
+-   `EMACovariance` --- Exponential moving average covariance, parameterized by alpha, halflife, or span.
+-   `SMACovariance` --- Simple moving average covariance over a fixed rolling window.
+
+All estimators support a `geometric=True` mode that applies a log transform
+to observations, suitable for multiplicative processes like financial returns,
+and a `frequency` parameter for annualizing results (e.g. `frequency=252` for daily data).
+
+Confidence interval methods for the sample covariance matrix include:
+
+-   `asymptotic` --- Normal approximation using the Wishart variance formula.
+-   `wishart` --- Monte Carlo sampling from the Wishart distribution.
+-   `bootstrap` --- Bootstrap resampling.
+-   `parametric_mc` --- Parametric Monte Carlo from a fitted normal.
+
+
+## Basic usage
+
+```python
+import numpy as np
+from covariance_calculators.estimators import OnlineCovariance
+from covariance_calculators.intervals import calc_covariance_intervals
+
+## Generate toy data: 500 samples from a 3d normal distribution
+rng = np.random.default_rng(42)
+true_cov = np.array([[1.0, 0.5, 0.2],
+                     [0.5, 2.0, 0.3],
+                     [0.2, 0.3, 1.5]])
+L = np.linalg.cholesky(true_cov)
+data = rng.standard_normal((500, 3)) @ L.T
+
+## Stream data through the online estimator
+oc = OnlineCovariance(order=3)
+for row in data:
+    oc.add(row)
+
+print(oc.mean)   # estimated mean vector
+print(oc.cov)    # estimated covariance matrix
+print(oc.corr)   # estimated correlation matrix
+
+## Compute 95% confidence intervals on the covariance estimate
+cov, ci_lower, ci_upper = calc_covariance_intervals(
+    data=data,
+    confidence_level=0.95,
+    method="asymptotic",
+)
+print(ci_lower)  # lower bounds of confidence intervals
+print(ci_upper)  # upper bounds of confidence intervals
+```
+
+
+## Setup and running tests
+
+Create and activate a virtual environment:
+
+```bash
+source setup.sh
+```
+
+This will create a `.venv` virtualenv (if one doesn't already exist),
+install the dependencies from `requirements.txt`, and add the parent
+directory to your `PYTHONPATH`.
+
+Run the tests:
+
+```bash
+make test
+```
+
+You can also run the linter with:
+
+```bash
+make lint
+```
+
+
 ## Coverage tests
+
+Shows that the confidence intervals are well calibrated at 1, 2, 3, and 4 $\sigma$ confidence levels:
 
 ![Testing the statistical coverage of confidence intervals.](img/coverage.png)
 
 
 ## Theory of confidence intervals
 
-
 ### Cochran's theorem
+
+For $n$ i.i.d. samples from a normal distribution, $x_i \sim N(\mu, \sigma^2)$,
+Cochran's theorem gives the sampling distribution of the MLE variance estimator:
 
 ```math
 \frac{n \hat{\sigma}^2}{\sigma^2} \sim \chi^{2}_{n-1}
@@ -127,31 +215,31 @@ Scatter matrix:
 S = \sum_{i=1}^{n} ( x_i - \bar{x} ) ( x_i - \bar{x} )^\intercal
 ```
 
-If $X \sim N_{p}(0, V)$ then $S \sim W_{p}(V, n)$.
+If the mean is known to be zero, $X \sim N_{p}(0, V)$, then $S \sim W_{p}(V, n)$.
 
-If $X \sim N_{p}(\mu, V)$ then $S \sim W_{p}(V, n-1)$.
+If the mean is estimated from the data, $X \sim N_{p}(\mu, V)$, then $S \sim W_{p}(V, n-1)$.
 
 If $p=1$ and $V=1$, then $W_{1}(1, n) = \chi^{2}_{n}$.
 
-Variance of Wishart:
+Variance of the $(i,j)$ element of $W \sim W_{p}(V, n)$:
 
 ```math
-n \cdot ( V_{ii} V_{jj} + V_{ij}^{2} )
+\mathrm{Var}(W_{ij}) = n \cdot ( V_{ii} V_{jj} + V_{ij}^{2} )
 ```
 
 
 ### Confidence intervals for sample covariance
 
-Unbiased estimator of variance of scatter matrix:
+Variance of the scatter matrix elements (from the Wishart with $n-1$ degrees of freedom):
 
 ```math
-\mathrm{Var}(\hat{S}) = (n-1) ( V_{ii} V_{jj} + V_{ij}^{2} )
+\mathrm{Var}(S_{ij}) = (n-1) ( V_{ii} V_{jj} + V_{ij}^{2} )
 ```
 
 Sample covariance matrix:
 
 ```math
-V = \frac{1}{n-1} S
+\hat{V} = \frac{1}{n-1} S
 ```
 
 Variance of sample covariance matrix:
@@ -181,13 +269,13 @@ z_{\alpha} = \Phi^{-1}\left(1 - \frac{\alpha}{2}\right)
 because
 
 ```math
-\Phi(z) = \int_{-\infty}^{z} \phi(x) dx  = 1 - \frac{\alpha}{2}
+\Phi(z_{\alpha}) = \int_{-\infty}^{z_{\alpha}} \phi(x) dx  = 1 - \frac{\alpha}{2}
 ```
 
 where
 
 ```math
-\phi(x) = \frac{1}{\sqrt{2\pi}} e^{x^2/2}
+\phi(x) = \frac{1}{\sqrt{2\pi}} e^{-x^2/2}
 ```
 
 Instead of using quantiles of the normal distribution we could use the quantiles of the Wishart distribution more directly.
@@ -221,8 +309,8 @@ See also:
 
 ## References
 
--   Cowan, G. (1998). *Statistical Data Analysis*. Clarendon Press.
--   James, F. (2006). *Statistical Methods in Experimental Particle Physics* (2nd ed.). World Scientific.
+-   Cowan, G. (1998). *Statistical Data Analysis*.
+-   James, F. (2006). *Statistical Methods in Experimental Particle Physics* (2nd ed.).
 -   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
--   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem), *Wikipedia*
+-   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem). *Wikipedia*.
 
