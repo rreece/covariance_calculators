@@ -7,13 +7,85 @@ Implementations of covariance estimators and confidence intervals
 
 ## Introduction
 
-TODO
+This package provides numerically stable, online (streaming) estimators
+for means, covariance matrices, and correlation matrices,
+along with methods for computing confidence intervals on the covariance estimates.
+
+Estimators included:
+
+-   `OnlineCovariance` --- Welford's one-pass algorithm for incremental mean and covariance estimation, with support for merging independent estimators.
+-   `EMACovariance` --- Exponential moving average covariance, parameterized by alpha, halflife, or span.
+-   `SMACovariance` --- Simple moving average covariance over a fixed rolling window.
+
+All estimators support a `geometric=True` mode that applies a log transform
+to observations, suitable for multiplicative processes like financial returns,
+and a `frequency` parameter for annualizing results (e.g. `frequency=252` for daily data).
+
+Confidence interval methods for the sample covariance matrix include:
+
+-   `asymptotic` --- Normal approximation using the Wishart variance formula.
+-   `wishart` --- Monte Carlo sampling from the Wishart distribution.
+-   `bootstrap` --- Bootstrap resampling.
+-   `parametric_mc` --- Parametric Monte Carlo from a fitted normal.
 
 
 ## Basic usage
 
+```python
+import numpy as np
+from covariance_calculators.estimators import OnlineCovariance
+from covariance_calculators.intervals import calc_covariance_intervals
+
+## Generate toy data: 500 samples from a 3d normal distribution
+rng = np.random.default_rng(42)
+true_cov = np.array([[1.0, 0.5, 0.2],
+                     [0.5, 2.0, 0.3],
+                     [0.2, 0.3, 1.5]])
+L = np.linalg.cholesky(true_cov)
+data = rng.standard_normal((500, 3)) @ L.T
+
+## Stream data through the online estimator
+oc = OnlineCovariance(order=3)
+for row in data:
+    oc.add(row)
+
+print(oc.mean)   # estimated mean vector
+print(oc.cov)    # estimated covariance matrix
+print(oc.corr)   # estimated correlation matrix
+
+## Compute 95% confidence intervals on the covariance estimate
+cov, ci_lower, ci_upper = calc_covariance_intervals(
+    data=data,
+    confidence_level=0.95,
+    method="asymptotic",
+)
+print(ci_lower)  # lower bounds of confidence intervals
+print(ci_upper)  # upper bounds of confidence intervals
 ```
-TODO: Show example of covariance calculator with toy example data.
+
+
+## Setup and running tests
+
+Create and activate a virtual environment:
+
+```bash
+source setup.sh
+```
+
+This will create a `.venv` virtualenv (if one doesn't already exist),
+install the dependencies from `requirements.txt`, and add the parent
+directory to your `PYTHONPATH`.
+
+Run the tests:
+
+```bash
+make test
+```
+
+You can also run the linter with:
+
+```bash
+make lint
 ```
 
 
