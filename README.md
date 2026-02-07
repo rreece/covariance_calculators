@@ -63,6 +63,33 @@ print(ci_lower)  # lower bounds of confidence intervals
 print(ci_upper)  # upper bounds of confidence intervals
 ```
 
+Example output:
+
+```
+>>> oc.mean
+[ 0.0021 -0.0354 -0.0472]
+
+>>> oc.cov
+[[1.1017 0.6671 0.2329]
+ [0.6671 2.0806 0.3757]
+ [0.2329 0.3757 1.4245]]
+
+>>> oc.corr
+[[1.     0.4406 0.1859]
+ [0.4406 1.     0.2182]
+ [0.1859 0.2182 1.    ]]
+
+>>> ci_lower
+[[0.965  0.5219 0.1211]
+ [0.5219 1.8224 0.2211]
+ [0.1211 0.2211 1.2478]]
+
+>>> ci_upper
+[[1.2385 0.8122 0.3447]
+ [0.8122 2.3388 0.5303]
+ [0.3447 0.5303 1.6013]]
+```
+
 
 ## Setup and running tests
 
