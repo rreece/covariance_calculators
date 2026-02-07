@@ -27,6 +27,7 @@ def calc_sample_mean(data, frequency=None):
 
 
 def calc_sample_covariance(data, frequency=None):
+    # V_hat = S/(n-1), the unbiased sample covariance (Bessel's correction).
     covariance = np.cov(data, rowvar=False, bias=False)  # bias=False uses n-1
     if not frequency is None:
         covariance = covariance * frequency
@@ -121,7 +122,7 @@ class OnlineCovariance:
     def cov(self):
         """
         array_like, The covariance matrix of the added data.
-        Uses n-1 denominator for Bessel's correction.
+        V_hat = S/(n-1), using Bessel's correction (see README: "Wishart distribution").
         """
         if self.count < 2:
             return None
@@ -154,6 +155,10 @@ class OnlineCovariance:
             self._mean = np.array(obs, dtype=self.dtype)
             return
 
+        # Welford (1962) one-pass update for the scatter matrix
+        # S = sum_i (x_i - x_bar)(x_i - x_bar)^T (see README: "Wishart distribution").
+        # _Cn accumulates S incrementally: C_n = C_{n-1} + delta * delta'^T
+        # where delta = x_n - x_bar_{n-1} and delta' = x_n - x_bar_n.
         delta = obs - self._mean
         self._mean += delta / self.count
         delta_at_n = obs - self._mean
@@ -316,10 +321,9 @@ class SMACovariance(OnlineCovariance):
         # Compute mean (annualized by frequency)
         self._mean = np.mean(data, axis=0)
 
-        # Compute covariance matrix
+        # Compute scatter matrix S = sum (x_i - x_bar)(x_i - x_bar)^T.
+        # _Cn stores S; the cov property divides by (n-1) to give V_hat.
         if self._count >= 2:
-            # Use numpy's cov with Bessel's correction (ddof=1 gives n-1 denominator)
-            # _Cn = (n-1) * cov, which is what OnlineCovariance stores
             self._Cn = np.cov(data, rowvar=False, ddof=1) * (self._count - 1)
         else:
             # Single observation: no covariance yet

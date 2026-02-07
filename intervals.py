@@ -66,35 +66,37 @@ def calc_covariance_intervals(
     alpha = 1.0 - confidence_level
 
     if method == 'asymptotic':
-        # Calculate standard errors using asymptotic formula with n-1 correction
+        # Two-sided z score: z_alpha = Phi^{-1}(1 - alpha/2)
+        # See README: "Confidence intervals for sample covariance"
         z_score = stats.norm.ppf(1 - alpha/2)
         se_matrix = np.zeros((n_features, n_features))
-        
-        # Standard error calculated from Wishart variance
-        # Var(V_ij) = (V_ii V_jj + V_ij^2) / (n-1)
-        # se_ij = sqrt( Var(V_ij) )
+
+        # Standard error from the Wishart variance formula (see README):
+        #   Var(V_ij) = (V_ii * V_jj + V_ij^2) / (n-1)
+        #   se_ij = sqrt(Var(V_ij))
         for i in range(n_features):
             for j in range(n_features):
                 se_matrix[i,j] = np.sqrt(
-                    (covariance[i,i] * covariance[j,j] + 
+                    (covariance[i,i] * covariance[j,j] +
                      covariance[i,j]**2) / (n_samples - 1)
                 )
-        
+
+        # Asymptotic CI: V_ij = V_hat_ij +/- z_alpha * se_ij
         ci_lower = covariance - z_score * se_matrix
         ci_upper = covariance + z_score * se_matrix
 
     elif method == 'wishart':
-        # Using Wishart distribution
-        # Initialize Wishart distribution with scale matrix S/(df)
-        # Scale matrix is S/(df) because wishart.rvs returns W/df where W ~ W_p(df, scale)
+        # Monte Carlo from the Wishart distribution (see README: "Wishart distribution").
+        # S ~ W_p(V, n-1), and V_hat = S/(n-1). scipy's wishart(df=nu, scale=Sigma)
+        # has E[W] = nu * Sigma. Setting scale = V_hat/(n-1) gives E[W] = V_hat,
+        # so the samples are directly in covariance-matrix units.
         dof = n_samples - 1
         wishart_dist = stats.wishart(df=dof, scale=covariance/dof)
 
-        # Generate samples to estimate quantiles
         n_samples_wishart = 10000
         wishart_samples = wishart_dist.rvs(n_samples_wishart)
 
-        # Calculate element-wise quantiles (ppf)
+        # Element-wise quantiles: Q_ij^lower, Q_ij^upper (see README)
         ci_lower = np.zeros((n_features, n_features))
         ci_upper = np.zeros((n_features, n_features))
 
