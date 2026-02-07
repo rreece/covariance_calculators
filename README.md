@@ -100,6 +100,9 @@ Shows that the confidence intervals are well calibrated at 1, 2, 3, and 4 $\sigm
 
 ### Cochran's theorem
 
+For $n$ i.i.d. samples from a normal distribution, $x_i \sim N(\mu, \sigma^2)$,
+Cochran's theorem gives the sampling distribution of the MLE variance estimator:
+
 ```math
 \frac{n \hat{\sigma}^2}{\sigma^2} \sim \chi^{2}_{n-1}
 ```
@@ -212,31 +215,31 @@ Scatter matrix:
 S = \sum_{i=1}^{n} ( x_i - \bar{x} ) ( x_i - \bar{x} )^\intercal
 ```
 
-If $X \sim N_{p}(0, V)$ then $S \sim W_{p}(V, n)$.
+If the mean is known to be zero, $X \sim N_{p}(0, V)$, then $S \sim W_{p}(V, n)$.
 
-If $X \sim N_{p}(\mu, V)$ then $S \sim W_{p}(V, n-1)$.
+If the mean is estimated from the data, $X \sim N_{p}(\mu, V)$, then $S \sim W_{p}(V, n-1)$.
 
 If $p=1$ and $V=1$, then $W_{1}(1, n) = \chi^{2}_{n}$.
 
-Variance of Wishart:
+Variance of the $(i,j)$ element of $W \sim W_{p}(V, n)$:
 
 ```math
-n \cdot ( V_{ii} V_{jj} + V_{ij}^{2} )
+\mathrm{Var}(W_{ij}) = n \cdot ( V_{ii} V_{jj} + V_{ij}^{2} )
 ```
 
 
 ### Confidence intervals for sample covariance
 
-Unbiased estimator of variance of scatter matrix:
+Variance of the scatter matrix elements (from the Wishart with $n-1$ degrees of freedom):
 
 ```math
-\mathrm{Var}(\hat{S}) = (n-1) ( V_{ii} V_{jj} + V_{ij}^{2} )
+\mathrm{Var}(S_{ij}) = (n-1) ( V_{ii} V_{jj} + V_{ij}^{2} )
 ```
 
 Sample covariance matrix:
 
 ```math
-V = \frac{1}{n-1} S
+\hat{V} = \frac{1}{n-1} S
 ```
 
 Variance of sample covariance matrix:
@@ -266,13 +269,13 @@ z_{\alpha} = \Phi^{-1}\left(1 - \frac{\alpha}{2}\right)
 because
 
 ```math
-\Phi(z) = \int_{-\infty}^{z} \phi(x) dx  = 1 - \frac{\alpha}{2}
+\Phi(z_{\alpha}) = \int_{-\infty}^{z_{\alpha}} \phi(x) dx  = 1 - \frac{\alpha}{2}
 ```
 
 where
 
 ```math
-\phi(x) = \frac{1}{\sqrt{2\pi}} e^{x^2/2}
+\phi(x) = \frac{1}{\sqrt{2\pi}} e^{-x^2/2}
 ```
 
 Instead of using quantiles of the normal distribution we could use the quantiles of the Wishart distribution more directly.
