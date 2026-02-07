@@ -13,9 +13,9 @@ along with methods for computing confidence intervals on the covariance estimate
 
 Estimators included:
 
--   `OnlineCovariance` --- Welford's one-pass algorithm for incremental mean and covariance estimation, with support for merging independent estimators.
--   `EMACovariance` --- Exponential moving average covariance, parameterized by alpha, halflife, or span.
--   `SMACovariance` --- Simple moving average covariance over a fixed rolling window.
+-   `OnlineCovariance` - Welford's one-pass algorithm for incremental mean and covariance estimation, with support for merging independent estimators
+-   `EMACovariance` - Exponential moving average covariance, parameterized by alpha, halflife, or span
+-   `SMACovariance` - Simple moving average covariance over a fixed rolling window
 
 All estimators support a `geometric=True` mode that applies a log transform
 to observations, suitable for multiplicative processes like financial returns,
@@ -23,10 +23,10 @@ and a `frequency` parameter for annualizing results (e.g. `frequency=252` for da
 
 Confidence interval methods for the sample covariance matrix include:
 
--   `asymptotic` --- Normal approximation using the Wishart variance formula.
--   `wishart` --- Monte Carlo sampling from the Wishart distribution.
--   `bootstrap` --- Bootstrap resampling.
--   `parametric_mc` --- Parametric Monte Carlo from a fitted normal.
+-   `asymptotic` - Normal approximation using the Wishart variance formula
+-   `wishart` - Monte Carlo sampling from the Wishart distribution
+-   `bootstrap` - Bootstrap resampling
+-   `parametric_mc` - Parametric Monte Carlo from a fitted normal
 
 
 ## Basic usage
@@ -347,4 +347,10 @@ See also:
 -   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
 -   Reece, R. (2026). *[Finance Notes](https://rreece.github.io/finance-notes/)*.
 -   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem). *Wikipedia*.
+
+
+## Author
+
+Ryan Reece ([@rreece](https://github.com/rreece))         
+Created: February 17, 2025
 
