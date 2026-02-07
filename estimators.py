@@ -91,10 +91,31 @@ class OnlineCovariance:
     def mean(self):
         """
         double, The mean of the added data.
-        """        
+        """
         if self.count < 1:
             return None
         return self._mean * self.frequency
+
+    @property
+    def cagr(self):
+        """
+        Compound Annual Growth Rate: exp(mean) - 1.
+        Converts the annualized continuously compounded rate to CAGR.
+        Only meaningful when geometric=True.
+        """
+        if self.mean is None:
+            return None
+        return np.expm1(self.mean)
+
+    @property
+    def mean_return(self):
+        """
+        Annualized mean return. Returns CAGR when geometric=True,
+        arithmetic mean otherwise.
+        """
+        if self.geometric:
+            return self.cagr
+        return self.mean
 
     @property
     def cov(self):

@@ -506,3 +506,43 @@ def test_geometric_false_is_default():
     assert np.allclose(oc_default.mean, oc_explicit.mean, rtol=1e-12)
     assert np.allclose(oc_default.cov, oc_explicit.cov, rtol=1e-12)
 
+
+def test_cagr_property():
+    """cagr property should return exp(mean) - 1."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 3) * 0.02
+    oc = OnlineCovariance(order=3, frequency=252, geometric=True)
+
+    for row in data:
+        oc.add(row)
+
+    expected_cagr = np.expm1(oc.mean)
+    assert np.allclose(oc.cagr, expected_cagr, rtol=1e-12)
+
+
+def test_mean_return_geometric():
+    """mean_return should return CAGR when geometric=True."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 3) * 0.02
+    geo = OnlineCovariance(order=3, frequency=252, geometric=True)
+
+    for row in data:
+        geo.add(row)
+
+    assert np.allclose(geo.mean_return, geo.cagr, rtol=1e-12)
+
+
+def test_mean_return_arithmetic():
+    """mean_return should return mean when geometric=False."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 3) * 0.02
+    arith = OnlineCovariance(order=3, frequency=252, geometric=False)
+
+    for row in data:
+        arith.add(row)
+
+    assert np.allclose(arith.mean_return, arith.mean, rtol=1e-12)
+
