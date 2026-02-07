@@ -5,13 +5,26 @@
 Implementations of covariance estimators and confidence intervals
 
 
+## Introduction
+
+TODO
+
+
+## Basic usage
+
+```
+TODO: Show example of covariance calculator with toy example data.
+```
+
+
 ## Coverage tests
+
+Shows that the confidence intervals are well calibrated at 1, 2, 3, and 4 $\sigma$ confidence levels:
 
 ![Testing the statistical coverage of confidence intervals.](img/coverage.png)
 
 
 ## Theory of confidence intervals
-
 
 ### Cochran's theorem
 
@@ -221,8 +234,8 @@ See also:
 
 ## References
 
--   Cowan, G. (1998). *Statistical Data Analysis*. Clarendon Press.
--   James, F. (2006). *Statistical Methods in Experimental Particle Physics* (2nd ed.). World Scientific.
+-   Cowan, G. (1998). *Statistical Data Analysis*.
+-   James, F. (2006). *Statistical Methods in Experimental Particle Physics* (2nd ed.).
 -   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
--   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem), *Wikipedia*
+-   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem). *Wikipedia*.
 
