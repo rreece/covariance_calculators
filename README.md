@@ -337,8 +337,14 @@ See also:
 
 ## References
 
+-   Welford, B.P. (1962). Note on a method for calculating corrected sums of squares and products.
 -   Cowan, G. (1998). *Statistical Data Analysis*.
 -   James, F. (2006). *Statistical Methods in Experimental Particle Physics* (2nd ed.).
+-   P&eacute;bay, P. (2008). [Formulas for robust, one-pass parallel computation of covariances and arbitrary-order statistical moments](https://www.osti.gov/servlets/purl/1028931).
+-   Finch, T. (2009). [Incremental calculation of weighted mean and variance](https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=5f77d0594f66e49cc0e8c2b8177ead33b7137183).
+-   Meng, X. (2015). [Simpler online updates for arbitrary-order central moments](https://arxiv.org/abs/1510.04923).
+-   P&eacute;bay, P. et al. (2016). [Numerically stable, scalable formulas for parallel and online computation of higher-order multivariate central moments with arbitrary weights](https://link.springer.com/article/10.1007/s00180-015-0637-z).
 -   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
+-   Reece, R. (2026). *[Finance Notes](https://rreece.github.io/finance-notes/)*.
 -   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem). *Wikipedia*.
 
