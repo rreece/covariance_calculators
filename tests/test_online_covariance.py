@@ -362,3 +362,187 @@ def test_all_estimators_valid_output():
         eigvals = np.linalg.eigvalsh(cov)
         assert np.all(eigvals >= -1e-10)
 
+
+# --- Geometric mode tests ---
+
+
+def test_geometric_online_matches_numpy_log():
+    """Geometric OnlineCovariance should match numpy on log1p-transformed data."""
+    np.random.seed(42)
+
+    data = np.random.randn(200, 4) * 0.02  # realistic daily returns
+
+    oc = OnlineCovariance(order=4, frequency=1, geometric=True)
+    for row in data:
+        oc.add(row)
+
+    log_data = np.log1p(data)
+    expected_mean = np.mean(log_data, axis=0)
+    expected_cov = np.cov(log_data, rowvar=False)
+
+    assert np.allclose(oc.mean, expected_mean, rtol=1e-6)
+    assert np.allclose(oc.cov, expected_cov, rtol=1e-6)
+
+
+def test_geometric_online_frequency_scaling():
+    """Geometric mode with frequency should annualize log-return statistics."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 2) * 0.01
+    oc = OnlineCovariance(order=2, frequency=252, geometric=True)
+
+    for row in data:
+        oc.add(row)
+
+    log_data = np.log1p(data)
+    raw_mean = np.mean(log_data, axis=0)
+    raw_var = np.var(log_data, axis=0, ddof=1)
+
+    assert np.allclose(oc.mean, raw_mean * 252, rtol=1e-6)
+    assert np.allclose(np.diag(oc.cov), raw_var * 252, rtol=1e-6)
+
+
+def test_geometric_mean_less_than_arithmetic():
+    """Geometric mean should be less than arithmetic mean (Jensen's inequality).
+
+    For positive r: log(1 + r) < r, so E[log(1 + r)] < E[r].
+    """
+    np.random.seed(42)
+
+    # Use strictly positive returns
+    data = np.abs(np.random.randn(200, 3)) * 0.03
+
+    arith = OnlineCovariance(order=3, frequency=1, geometric=False)
+    geo = OnlineCovariance(order=3, frequency=1, geometric=True)
+
+    for row in data:
+        arith.add(row)
+        geo.add(row)
+
+    assert np.all(geo.mean < arith.mean)
+
+
+def test_geometric_ema_convergence():
+    """Geometric EMA should converge to true log-return statistics for small alpha."""
+    np.random.seed(42)
+
+    n_samples = 30000
+    n_features = 3
+    true_mean = np.array([0.001, 0.002, -0.001])  # small daily returns
+    true_cov = np.array([[0.0004, 0.0001, 0.00005],
+                         [0.0001, 0.0009, -0.0002],
+                         [0.00005, -0.0002, 0.0016]])
+    data = np.random.multivariate_normal(mean=true_mean, cov=true_cov, size=n_samples)
+
+    ema = EMACovariance(order=n_features, alpha=0.001, geometric=True)
+    for row in data:
+        ema.add(row)
+
+    log_data = np.log1p(data)
+    expected_mean = np.mean(log_data, axis=0)
+    expected_cov = np.cov(log_data, rowvar=False)
+
+    assert np.allclose(ema.mean, expected_mean, rtol=0, atol=1e-2)
+    assert np.allclose(ema.cov, expected_cov, rtol=0, atol=2e-3)
+
+
+def test_geometric_sma_matches_numpy_log():
+    """Geometric SMA should match numpy on log1p of last N samples."""
+    np.random.seed(42)
+
+    window = 20
+    data = np.random.randn(100, 2) * 0.02
+
+    sma = SMACovariance(order=2, span=window, frequency=1, geometric=True)
+    for row in data:
+        sma.add(row)
+
+    log_data = np.log1p(data[-window:])
+    expected_mean = np.mean(log_data, axis=0)
+    expected_cov = np.cov(log_data, rowvar=False)
+
+    assert np.allclose(sma.mean, expected_mean, rtol=1e-6)
+    assert np.allclose(sma.cov, expected_cov, rtol=1e-6)
+
+
+def test_geometric_all_estimators_valid_output():
+    """All estimators in geometric mode should produce valid covariance matrices."""
+    np.random.seed(42)
+
+    n_vars = 3
+    estimators = [
+        OnlineCovariance(order=n_vars, frequency=1, geometric=True),
+        EMACovariance(order=n_vars, span=50, frequency=1, geometric=True),
+        SMACovariance(order=n_vars, span=50, frequency=1, geometric=True),
+    ]
+
+    data = np.random.randn(100, n_vars) * 0.02
+
+    for row in data:
+        for est in estimators:
+            est.add(row)
+
+    for est in estimators:
+        cov = est.cov
+        assert cov.shape == (n_vars, n_vars)
+        assert np.allclose(cov, cov.T, rtol=1e-6)
+        eigvals = np.linalg.eigvalsh(cov)
+        assert np.all(eigvals >= -1e-10)
+
+
+def test_geometric_false_is_default():
+    """Geometric=False should be the default and produce identical results to before."""
+    np.random.seed(42)
+
+    data = np.random.randn(50, 3)
+
+    oc_default = OnlineCovariance(order=3, frequency=1)
+    oc_explicit = OnlineCovariance(order=3, frequency=1, geometric=False)
+
+    for row in data:
+        oc_default.add(row)
+        oc_explicit.add(row)
+
+    assert np.allclose(oc_default.mean, oc_explicit.mean, rtol=1e-12)
+    assert np.allclose(oc_default.cov, oc_explicit.cov, rtol=1e-12)
+
+
+def test_cagr_property():
+    """cagr property should return exp(mean) - 1."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 3) * 0.02
+    oc = OnlineCovariance(order=3, frequency=252, geometric=True)
+
+    for row in data:
+        oc.add(row)
+
+    expected_cagr = np.expm1(oc.mean)
+    assert np.allclose(oc.cagr, expected_cagr, rtol=1e-12)
+
+
+def test_mean_return_geometric():
+    """mean_return should return CAGR when geometric=True."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 3) * 0.02
+    geo = OnlineCovariance(order=3, frequency=252, geometric=True)
+
+    for row in data:
+        geo.add(row)
+
+    assert np.allclose(geo.mean_return, geo.cagr, rtol=1e-12)
+
+
+def test_mean_return_arithmetic():
+    """mean_return should return mean when geometric=False."""
+    np.random.seed(42)
+
+    data = np.random.randn(100, 3) * 0.02
+    arith = OnlineCovariance(order=3, frequency=252, geometric=False)
+
+    for row in data:
+        arith.add(row)
+
+    assert np.allclose(arith.mean_return, arith.mean, rtol=1e-12)
+
