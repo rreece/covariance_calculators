@@ -225,3 +225,131 @@ def calc_precision_intervals(
 
     return precision, ci_lower, ci_upper
 
+
+def calc_tangent_portfolio(
+    mean_returns: np.ndarray,
+    covariance: np.ndarray,
+    risk_free_rate: float = 0.0,
+) -> np.ndarray:
+    """
+    Calculate tangent portfolio weights (maximum Sharpe ratio portfolio).
+
+    w ∝ Σ⁻¹(μ - r_f), normalized to sum to 1
+
+    Parameters:
+    -----------
+    mean_returns : np.ndarray
+        Expected returns for each asset (n_assets,)
+    covariance : np.ndarray
+        Covariance matrix of returns (n_assets, n_assets)
+    risk_free_rate : float
+        Risk-free rate (default: 0.0)
+
+    Returns:
+    --------
+    weights : np.ndarray
+        Tangent portfolio weights (sum to 1)
+    """
+    excess_returns = mean_returns - risk_free_rate
+    precision = np.linalg.inv(covariance)
+    raw_weights = precision @ excess_returns
+    weights = raw_weights / np.sum(raw_weights)
+    return weights
+
+
+def calc_tangent_portfolio_intervals(
+    data: np.ndarray,
+    risk_free_rate: float = 0.0,
+    confidence_level: float = 0.95,
+    n_bootstrap: int = 1000,
+    random_state=None,
+) -> dict:
+    """
+    Calculate confidence intervals for tangent portfolio weights and Sharpe ratio.
+
+    Uses bootstrap resampling to propagate uncertainty from returns data
+    through to portfolio weights and performance metrics.
+
+    Parameters:
+    -----------
+    data : np.ndarray
+        Returns data matrix (n_samples, n_assets). Each row is a time period,
+        each column is an asset.
+    risk_free_rate : float
+        Risk-free rate per period (default: 0.0, assumes excess returns)
+    confidence_level : float
+        Confidence level (default: 0.95)
+    n_bootstrap : int
+        Number of bootstrap samples (default: 1000)
+    random_state : int, Generator, or RandomState, optional
+        Seed or random state for reproducibility
+
+    Returns:
+    --------
+    dict with keys:
+        'weights': Point estimate of tangent portfolio weights
+        'weights_ci_lower': Lower CI for weights
+        'weights_ci_upper': Upper CI for weights
+        'sharpe_ratio': Point estimate of Sharpe ratio
+        'sharpe_ratio_ci_lower': Lower CI for Sharpe ratio
+        'sharpe_ratio_ci_upper': Upper CI for Sharpe ratio
+        'expected_return': Point estimate of portfolio expected return
+        'volatility': Point estimate of portfolio volatility
+    """
+    rng = np.random.default_rng(random_state)
+    n_samples, n_assets = data.shape
+    alpha = 1.0 - confidence_level
+
+    # Point estimates
+    mean_returns = np.mean(data, axis=0)
+    covariance = np.cov(data, rowvar=False, bias=False)
+    weights = calc_tangent_portfolio(mean_returns, covariance, risk_free_rate)
+
+    # Portfolio metrics
+    portfolio_return = weights @ mean_returns
+    portfolio_volatility = np.sqrt(weights @ covariance @ weights)
+    sharpe_ratio = (portfolio_return - risk_free_rate) / portfolio_volatility
+
+    # Bootstrap
+    bootstrap_weights = np.zeros((n_bootstrap, n_assets))
+    bootstrap_sharpe = np.zeros(n_bootstrap)
+
+    for i in range(n_bootstrap):
+        # Resample with replacement
+        indices = rng.choice(n_samples, size=n_samples, replace=True)
+        boot_data = data[indices]
+
+        # Compute bootstrap estimates
+        boot_mean = np.mean(boot_data, axis=0)
+        boot_cov = np.cov(boot_data, rowvar=False, bias=False)
+
+        try:
+            boot_weights = calc_tangent_portfolio(boot_mean, boot_cov, risk_free_rate)
+            boot_port_return = boot_weights @ boot_mean
+            boot_port_vol = np.sqrt(boot_weights @ boot_cov @ boot_weights)
+            boot_sharpe = (boot_port_return - risk_free_rate) / boot_port_vol
+
+            bootstrap_weights[i] = boot_weights
+            bootstrap_sharpe[i] = boot_sharpe
+        except np.linalg.LinAlgError:
+            # Singular matrix - use NaN
+            bootstrap_weights[i] = np.nan
+            bootstrap_sharpe[i] = np.nan
+
+    # Compute confidence intervals (ignoring NaN)
+    weights_ci_lower = np.nanpercentile(bootstrap_weights, 100 * alpha / 2, axis=0)
+    weights_ci_upper = np.nanpercentile(bootstrap_weights, 100 * (1 - alpha / 2), axis=0)
+    sharpe_ci_lower = np.nanpercentile(bootstrap_sharpe, 100 * alpha / 2)
+    sharpe_ci_upper = np.nanpercentile(bootstrap_sharpe, 100 * (1 - alpha / 2))
+
+    return {
+        'weights': weights,
+        'weights_ci_lower': weights_ci_lower,
+        'weights_ci_upper': weights_ci_upper,
+        'sharpe_ratio': sharpe_ratio,
+        'sharpe_ratio_ci_lower': sharpe_ci_lower,
+        'sharpe_ratio_ci_upper': sharpe_ci_upper,
+        'expected_return': portfolio_return,
+        'volatility': portfolio_volatility,
+    }
+
