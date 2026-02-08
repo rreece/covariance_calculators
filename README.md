@@ -258,7 +258,7 @@ C_{n} = C_{n-1} + \frac{n-1}{n} \left( \vec{x}_{n} - \vec{\mu}_{n-1} \right) \le
 
 Note that the update term for the online covariance is a term in a scatter matrix, $S$,
 using the currently observed data, $\vec{x}_{n}$, and the previous means, $\vec{\mu}_{n-1}$.
-But also note that the $\vec{\delta} \: \vec{\delta^\prime}^\intercal$ form is also
+But also note that the $\vec{\delta} \vec{\delta^\prime}^\intercal$ form is also
 convenient because it comes naturally normalized and can be readily generalized for weighting.
 
 Weighted mean:
