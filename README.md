@@ -538,9 +538,9 @@ See also: Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.ariz
 -   P&eacute;bay, P. et al. (2016). [Numerically stable, scalable formulas for parallel and online computation of higher-order multivariate central moments with arbitrary weights](https://link.springer.com/article/10.1007/s00180-015-0637-z).
 -   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
 -   Reece, R. (2026). *[Finance Notes](https://rreece.github.io/finance-notes/)*.
+-   [Algorithms for calculating variance](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance). *Wikipedia*.
 -   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem). *Wikipedia*.
--   [Algorithms for calculating variance](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance)
--   [Covariance matrix](https://en.wikipedia.org/wiki/Covariance_matrix)
+-   [Covariance matrix](https://en.wikipedia.org/wiki/Covariance_matrix). *Wikipedia*.
 
 
 
