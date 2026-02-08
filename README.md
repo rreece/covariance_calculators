@@ -234,6 +234,10 @@ we have a frequentist confidence interval:
 \mu = \hat{\mu} \pm z_{\alpha} \sigma_{\hat{\mu}} = \bar{x} \pm z_\alpha \frac{\hat{\sigma}}{\sqrt{n}} \qquad \mathrm{at}~(1-\alpha)~\mathrm{CL}
 ```
 
+See also:
+
+-   Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.arizona.edu/~jwatkins/chi-square-table.pdf)
+
 
 ### Wishart distribution
 
@@ -306,6 +310,9 @@ where
 \phi(x) = \frac{1}{\sqrt{2\pi}} e^{-x^2/2}
 ```
 
+This is what is implemented for `method="asymptotic"`.
+
+
 Instead of using quantiles of the normal distribution we could use the quantiles of the Wishart distribution more directly.
 
 ```math
@@ -330,9 +337,7 @@ Q^\mathrm{lower} = F_{W}^{-1}(\frac{\alpha}{2}; \hat{V}, n-1)
 Q_{ij}^\mathrm{lower} < V_{ij} < Q_{ij}^\mathrm{upper} \qquad \mathrm{at}~(1-\alpha)~\mathrm{CL}
 ```
 
-See also:
-
--   Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.arizona.edu/~jwatkins/chi-square-table.pdf)
+This is what is implemented for `method="wishart"`.
 
 
 ## References
