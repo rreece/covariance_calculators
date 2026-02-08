@@ -124,6 +124,195 @@ Shows that the confidence intervals are well calibrated at 1, 2, 3, and 4 $\sigm
 ![Testing the statistical coverage of confidence intervals.](img/coverage.png)
 
 
+## Online mean and covariance estimation
+
+
+
+### Sample mean and covariance
+
+Mean:
+
+```math
+\mu_{i} = \mathbb{E}[x_{i}]
+```
+
+Covariance:
+
+```math
+\Sigma_{ij} = \mathrm{cov}(x_{i}, x_{j}) = \mathbb{E}[(x_{i} - \mu_{i})(x_{j} - \mu_{j})] = \mathbb{E}[x_{i} x_{j}] - \mu_{i} \mu_{j}
+```
+
+Sample mean:
+
+```math
+\bar{x}_{i} = \frac{1}{n} \sum_{k=1}^{n} x_{ik}
+```
+
+Sample covariance:
+
+```math
+V_{ij} = \frac{1}{n-1} \sum_{k=1}^{n} (x_{ik} - \bar{x}_{i}) ( x_{jk} - \bar{x}_{j} )
+```
+
+Scatter matrix:
+
+```math
+S = \sum_{k=1}^{n} \left( \vec{x}_{k} - \vec{\mu} \right) \left( \vec{x}_{k} - \vec{\mu} \right)^\intercal
+```
+
+```math
+V = \frac{1}{n-1} S
+```
+
+
+### Online mean and covariance
+
+This discusses how one can calculate a continuously updated covariance
+estimate one data sample at a time.
+
+Univariate central moments:
+
+```math
+\mu_{p} = \mathbb{E}\left[(x - \mu_{1})^{p}\right]
+```
+
+```math
+M_{p} = \sum_{i}^{n} (x_i - \mu_{1})^{p}
+```
+
+```math
+\mu_{p} = \frac{M_{p}}{n} \,, \qquad \mu = \frac{M_{1}}{n} \,, \qquad \sigma^2 = \frac{M_{2}}{n}
+```
+
+Online mean:
+
+```math
+\delta \equiv x_n - \mu_{n - 1}
+```
+
+```math
+\hat{\mu}_{n} = \mu_{n-1} + \frac{\delta}{n}
+```
+
+Online variance:
+
+```math
+S_{n} = M_{2,n}
+```
+
+```math
+\hat{\sigma}^2 = \frac{S_{n}}{n-1}
+```
+
+where the $n-1$ includes Bessel's correction for sample variance.
+
+Incrementally,
+
+```math
+S_{n} = S_{n-1} + (x_n - \mu_{n - 1}) (x_n - \mu_n)
+```
+
+Note that for $n > 1$,
+
+```math
+(x_n - \mu_n) = \frac{n-1}{n} (x_n - \mu_{n - 1})
+```
+
+Therefore,
+
+```math
+S_{n} = S_{n-1} + \frac{n-1}{n} (x_n - \mu_{n - 1}) (x_n - \mu_{n - 1})
+```
+
+```math
+S_{n} = S_{n-1} + \frac{n-1}{n} \delta^2 = S_{n-1} + \delta \left( \delta - \frac{\delta}{n} \right)
+```
+
+Online covariance (Welford algorithm):
+
+```math
+C_{n}(x, y) = C_{n-1} + (x_n - \bar{x}_{n - 1}) (y_n - \bar{y}_n) = C_{n-1} + \delta_{x} \delta_{y}^\prime
+```
+
+```math
+C_{n}(x, y) = C_{n-1} + \frac{n-1}{n} (x_n - \bar{x}_{n - 1}) (y_n - \bar{y}_{n - 1}) = C_{n-1} + \frac{n-1}{n} \delta_{x} \delta_{y}
+```
+
+```math
+\hat{V}_{xy} = \frac{C_{n}(x, y)}{n-1}
+```
+
+Matrix form:
+
+```math
+C_{n} = C_{n-1} + \left( \vec{x}_{n} - \vec{\mu}_{n-1} \right) \left( \vec{x}_{n} - \vec{\mu}_{n} \right)^\intercal = C_{n-1} + \vec{\delta} \: \vec{\delta^\prime}^\intercal
+```
+
+```math
+C_{n} = C_{n-1} + \frac{n-1}{n} \left( \vec{x}_{n} - \vec{\mu}_{n-1} \right) \left( \vec{x}_{n} - \vec{\mu}_{n-1} \right)^\intercal = C_{n-1} + \frac{n-1}{n} S(\vec{x}_{n}, \vec{\mu}_{n-1})
+```
+
+```math
+\hat{V} = \frac{C_{n}}{n-1}
+```
+
+Note that the update term for the online covariance is a term in a scatter matrix, $S$,
+using the currently observed data, $\vec{x}_{n}$, and the previous means, $\vec{\mu}_{n-1}$.
+But also note that the $\vec{\delta} \: \vec{\delta^\prime}^\intercal$ form is also
+convenient because it comes naturally normalized and can be readily generalized for weighting.
+
+Weighted mean:
+
+```math
+\hat{\mu}_{n} = \mu_{n-1} + \frac{w_{n,n}}{W_n} \delta = \mu_{n-1} + \frac{w_{n,n}}{W_n} (x_n - \mu_{n - 1})
+```
+
+where
+
+```math
+W_{n} = \sum_{i=1}^{n} w_{n,i}
+```
+
+Weighted covariance:
+
+```math
+C_{n} = \frac{W_n - w_{n,n}}{W_{n-1}} C_{n-1} + w_{n,n} \left( x_{n} - \bar{x}_{n-1} \right) \left( y_{n} - \bar{y}_{n} \right)
+```
+
+```math
+C_{n} = \frac{W_n - w_{n,n}}{W_{n-1}} C_{n-1} + w_{n,n} \left( \vec{x}_{n} - \vec{\mu}_{n-1} \right) \left( \vec{x}_{n} - \vec{\mu}_{n} \right)^\intercal
+```
+
+where
+
+```math
+\hat{V} = \frac{C_{n}}{W_{n}}
+```
+
+Exponential-weighted mean:
+
+```math
+\alpha = 1 - \mathrm{exp}\left( \frac{-\Delta{}t}{\tau} \right) \simeq \frac{\Delta{}t}{\tau}
+```
+
+```math
+\hat{\mu}_{n} = \mu_{n-1} + \alpha (x_{n} - \mu_{n-1}) = (1 - \alpha) \mu_{n-1} + \alpha x_{n}
+```
+
+Exponential-weighted covariance:
+
+```math
+C_{n} = (1 - \alpha) C_{n-1} + \alpha \left( x_{n} - \bar{x}_{n-1} \right) \left( y_{n} - \bar{y}_{n} \right)
+```
+
+```math
+C_{n} = (1 - \alpha) C_{n-1} + \alpha \left( \vec{x}_{n} - \vec{\mu}_{n-1} \right) \left( \vec{x}_{n} - \vec{\mu}_{n} \right)^\intercal
+```
+
+where by summing a geometric series, one can show that for exponential weighting, $W_{n} = 1$,
+so $\hat{V} = C_{n}$.
+
+
 ## Theory of confidence intervals
 
 ### Cochran's theorem
@@ -350,6 +539,9 @@ See also: Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.ariz
 -   Heins, A. (2024). [Confidence intervals for Wishart random matrices](https://adamheins.com/blog/wishart-confidence-intervals).
 -   Reece, R. (2026). *[Finance Notes](https://rreece.github.io/finance-notes/)*.
 -   [Cochran's theorem](https://en.wikipedia.org/wiki/Cochran%27s_theorem). *Wikipedia*.
+-   [Algorithms for calculating variance](https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance)
+-   [Covariance matrix](https://en.wikipedia.org/wiki/Covariance_matrix)
+
 
 
 ## Author
