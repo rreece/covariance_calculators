@@ -234,10 +234,6 @@ we have a frequentist confidence interval:
 \mu = \hat{\mu} \pm z_{\alpha} \sigma_{\hat{\mu}} = \bar{x} \pm z_\alpha \frac{\hat{\sigma}}{\sqrt{n}} \qquad \mathrm{at}~(1-\alpha)~\mathrm{CL}
 ```
 
-See also:
-
--   Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.arizona.edu/~jwatkins/chi-square-table.pdf)
-
 
 ### Wishart distribution
 
@@ -339,6 +335,8 @@ Q_{ij}^\mathrm{lower} < V_{ij} < Q_{ij}^\mathrm{upper} \qquad \mathrm{at}~(1-\al
 
 This is what is implemented for `method="wishart"`.
 
+See also: Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.arizona.edu/~jwatkins/chi-square-table.pdf).
+
 
 ## References
 
@@ -357,5 +355,5 @@ This is what is implemented for `method="wishart"`.
 ## Author
 
 Ryan Reece ([@rreece](https://github.com/rreece))         
-Created: February 17, 2025
+Created: February 17, 2025       
 
