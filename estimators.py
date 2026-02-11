@@ -165,6 +165,30 @@ class OnlineCovariance:
 
         self._Cn += np.outer(delta, delta_at_n)
 
+    def to_dict(self):
+        """Serialize internal state to a plain dict (with numpy arrays as values)."""
+        return {
+            "class": "OnlineCovariance",
+            "order": self._order,
+            "count": self._count,
+            "mean": self._mean.copy(),
+            "Cn": self._Cn.copy(),
+            "frequency": self.frequency,
+            "geometric": self.geometric,
+            "dtype": np.dtype(self.dtype).name,
+        }
+
+    @classmethod
+    def from_dict(cls, d):
+        """Create an OnlineCovariance instance from a state dict."""
+        dtype = np.dtype(d["dtype"])
+        obj = cls(order=d["order"], frequency=d["frequency"],
+                  geometric=d["geometric"], dtype=dtype)
+        obj._count = int(d["count"])
+        obj._mean = np.array(d["mean"], dtype=dtype)
+        obj._Cn = np.array(d["Cn"], dtype=dtype)
+        return obj
+
     def merge(self, other):
         """
         Merges the current object and the given other object into a new OnlineCovariance object.
@@ -283,6 +307,27 @@ class EMACovariance(OnlineCovariance):
 
         self._Cn = (1 - self._alpha) * self._Cn + self._alpha * np.outer(delta, delta_at_n)
 
+    def to_dict(self):
+        """Serialize internal state to a plain dict."""
+        d = super().to_dict()
+        d["class"] = "EMACovariance"
+        d["alpha"] = self._alpha
+        d["warmup"] = self._warmup
+        d["warmup_buffer"] = [obs.copy() for obs in self._warmup_buffer]
+        return d
+
+    @classmethod
+    def from_dict(cls, d):
+        """Create an EMACovariance instance from a state dict."""
+        dtype = np.dtype(d["dtype"])
+        obj = cls(order=d["order"], alpha=d["alpha"], warmup=d["warmup"],
+                  frequency=d["frequency"], geometric=d["geometric"], dtype=dtype)
+        obj._count = int(d["count"])
+        obj._mean = np.array(d["mean"], dtype=dtype)
+        obj._Cn = np.array(d["Cn"], dtype=dtype)
+        obj._warmup_buffer = [np.array(obs, dtype=dtype) for obs in d["warmup_buffer"]]
+        return obj
+
     def merge(self, other):
         """
         TODO: Update for EMACovariance
@@ -328,6 +373,27 @@ class SMACovariance(OnlineCovariance):
         else:
             # Single observation: no covariance yet
             self._Cn = np.zeros((self._order, self._order), dtype=self.dtype)
+
+
+    def to_dict(self):
+        """Serialize internal state to a plain dict."""
+        d = super().to_dict()
+        d["class"] = "SMACovariance"
+        d["span"] = self._span
+        d["queue"] = [obs.copy() for obs in self.queue]
+        return d
+
+    @classmethod
+    def from_dict(cls, d):
+        """Create an SMACovariance instance from a state dict."""
+        dtype = np.dtype(d["dtype"])
+        obj = cls(order=d["order"], span=d["span"],
+                  frequency=d["frequency"], geometric=d["geometric"], dtype=dtype)
+        obj._count = int(d["count"])
+        obj._mean = np.array(d["mean"], dtype=dtype)
+        obj._Cn = np.array(d["Cn"], dtype=dtype)
+        obj.queue = [np.array(obs, dtype=dtype) for obs in d["queue"]]
+        return obj
 
 
 class RollingCovariance(OnlineCovariance):
