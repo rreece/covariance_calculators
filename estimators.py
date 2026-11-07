@@ -7,7 +7,6 @@ TODO:
 [x] Online mean and covariance
 [x] Exponential moving mean and covariance
 [ ] NaN protection
-[ ] Rolling mean and covariance
 [ ] Shrinkage estimators
 """
 
@@ -28,7 +27,8 @@ def calc_sample_mean(data, frequency=None):
 
 def calc_sample_covariance(data, frequency=None):
     # V_hat = S/(n-1), the unbiased sample covariance (Bessel's correction).
-    covariance = np.cov(data, rowvar=False, bias=False)  # bias=False uses n-1
+    # np.cov returns a 0-d array for one feature, so keep the (p, p) shape.
+    covariance = np.atleast_2d(np.cov(data, rowvar=False, bias=False))  # bias=False uses n-1
     if not frequency is None:
         covariance = covariance * frequency
     return covariance
@@ -52,6 +52,7 @@ class OnlineCovariance:
         dataset and of the resulting covariance matrix.
         geometric: bool, If True, transform observations to log returns via log(1 + r)
         before processing. Gives CAGR-style mean and multiplicative-process covariance.
+        Returns must be greater than -1; add raises ValueError otherwise.
         """
         self._order = order
         self._count = 0
@@ -63,20 +64,21 @@ class OnlineCovariance:
         
     def _prepare_observation(self, observation):
         """
-        Convert observation to numpy array, validate size,
+        Copy observation to a 1-d numpy array, validate size,
         and optionally apply log transform for geometric mode.
+
+        Accepts anything numpy can convert: arrays, lists, tuples, scalars,
+        and pandas Series. Always copies, because windowed estimators keep
+        observations and the caller may reuse its buffer.
         """
-        if isinstance(observation, np.ndarray):
-            obs = observation
-        elif isinstance(observation, list):
-            obs = np.array(observation, dtype=self.dtype)
-        elif isinstance(observation, (int, float)):
-            obs = np.array([observation], dtype=self.dtype)
-        else:
-            assert False
+        obs = np.array(observation, dtype=self.dtype).ravel()
         if self._order != obs.size:
             raise ValueError(f"To add, observation size {obs.size} must be {self._order}")
         if self.geometric:
+            # log(1 + r) is -inf or NaN here, which would poison the running state.
+            # Raise before any update, so the estimator stays usable.
+            if np.any(obs <= -1):
+                raise ValueError(f"geometric returns must be greater than -1, got {obs}")
             obs = np.log1p(obs)
         return obs
 
@@ -134,11 +136,12 @@ class OnlineCovariance:
         array_like, The normalized covariance matrix of the added data.
         Consists of the Pearson Correlation Coefficients of the data's features.
         """
-        if self.count < 2:
+        cov = self.cov
+        if cov is None:
             return None
-        variances = np.diagonal(self.cov)
-        denomiator = np.sqrt(variances[np.newaxis,:] * variances[:,np.newaxis])
-        return self.cov / denomiator
+        variances = np.diagonal(cov)
+        denominator = np.sqrt(variances[np.newaxis,:] * variances[:,np.newaxis])
+        return cov / denominator
 
     def add(self, observation):
         """
@@ -192,6 +195,7 @@ class OnlineCovariance:
     def merge(self, other):
         """
         Merges the current object and the given other object into a new OnlineCovariance object.
+        Either object may be empty. Both must have the same type and settings.
 
         Parameters
         ----------
@@ -207,12 +211,21 @@ class OnlineCovariance:
                    Cannot merge two OnlineCovariances with different orders.
                    ({self._order} != {other._order})
                    """)
-            
-        merged = OnlineCovariance(self._order)
+        if type(other) is not type(self):
+            raise TypeError(f"Cannot merge {type(self).__name__} with {type(other).__name__}")
+        for name in ("frequency", "geometric", "dtype"):
+            if getattr(self, name) != getattr(other, name):
+                raise ValueError(f"Cannot merge OnlineCovariances with different {name}")
+
+        merged = OnlineCovariance(self._order, frequency=self.frequency,
+                                  geometric=self.geometric, dtype=self.dtype)
         merged._count = self.count + other.count
+        if merged.count == 0:
+            return merged
         w_self = self.count/merged.count
         w_other = other.count/merged.count
-        merged._mean = (self.mean * w_self) + (other.mean * w_other)
+        # Use the raw means: the mean property is annualized by frequency.
+        merged._mean = (self._mean * w_self) + (other._mean * w_other)
         delta_mean = self._mean - other._mean
         w_delta = (other.count * self.count) / merged.count
         merged._Cn = self._Cn + other._Cn + np.outer(delta_mean, delta_mean) * w_delta
@@ -220,16 +233,31 @@ class OnlineCovariance:
 
 
 class EMACovariance(OnlineCovariance):
-    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
+    """
+    Exponentially weighted mean and covariance.
+
+    Parameters
+    ----------
+    bias: bool, If False (default), apply the reliability-weights analog of
+    Bessel's correction, so cov is unbiased for i.i.d. data. If True, return
+    the uncorrected weighted covariance, which is low by a factor of
+    (1 - sum w_i^2). See README: "Bias correction".
+    """
+    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE, bias=False):
         super(EMACovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
         _alpha = self._calc_alpha(alpha=alpha, halflife=halflife, span=span)
-        assert 0 < _alpha < 1
+        if not 0 < _alpha < 1:
+            raise ValueError(f"alpha must be between 0 and 1, got {_alpha}")
         self._alpha = _alpha
+        self._bias = bias
+        # sum w_i^2 of the EMA weights on the observations seen so far.
+        self._sum_w2 = 1.0
         # Warmup: accumulate first N observations and initialize with SMA
         # Default warmup is span // 5 (if provided), otherwise no warmup
         # Warmup must be 0 (disabled) or >= 2 (need at least 2 observations for covariance)
         if warmup is not None:
-            assert warmup == 0 or warmup >= 2, f"warmup must be 0 or >= 2, got {warmup}"
+            if warmup != 0 and warmup < 2:
+                raise ValueError(f"warmup must be 0 or >= 2, got {warmup}")
             self._warmup = warmup
         elif span is not None:
             self._warmup = max(span // 5, 2)
@@ -238,12 +266,13 @@ class EMACovariance(OnlineCovariance):
         self._warmup_buffer = []
 
     def _calc_alpha(self, alpha=None, halflife=None, span=None):
-        if alpha:
+        if alpha is not None:
             return alpha
-        if halflife:
+        if halflife is not None:
             return 1.0 - math.exp(-1*math.log(2)/halflife)
-        if span:
+        if span is not None:
             return 2.0 / (span + 1)
+        raise ValueError("Provide one of alpha, halflife, or span")
 
     @property
     def mean(self):
@@ -260,14 +289,18 @@ class EMACovariance(OnlineCovariance):
     @property
     def cov(self):
         """
-        Note: denominator has W = 1
+        The weights sum to 1, so C_n is the weighted covariance.
+        With bias=False, it is divided by (1 - sum w_i^2) to remove the bias.
         """
         if self.count < 2:
             return None
         # During warmup, return None (not enough data for stable estimate)
         if self._warmup > 0 and self._count <= self._warmup:
             return None
-        return self._Cn * self.frequency
+        cov = self._Cn * self.frequency
+        if not self._bias:
+            cov = cov / (1.0 - self._sum_w2)
+        return cov
 
     def add(self, observation):
         obs = self._prepare_observation(observation)
@@ -282,11 +315,12 @@ class EMACovariance(OnlineCovariance):
                 data = np.array(self._warmup_buffer, dtype=self.dtype)
                 self._mean = np.mean(data, axis=0)
                 if len(data) >= 2:
-                    # Initialize _Cn with sample covariance scaled for EMA
-                    # Use (n-1) * cov as the base, then scale by (1-alpha) to
-                    # give appropriate weight relative to future EMA updates
-                    sample_cov = np.cov(data, rowvar=False, ddof=1)
-                    self._Cn = sample_cov * (1 - self._alpha)
+                    # Equal weights 1/k give sum w_i^2 = 1/k, and the weighted
+                    # covariance is (k-1)/k times the sample covariance.
+                    # This keeps E[C_n] = V * (1 - sum w_i^2) for later updates.
+                    sample_cov = calc_sample_covariance(data)
+                    self._sum_w2 = 1.0 / len(data)
+                    self._Cn = sample_cov * (1.0 - self._sum_w2)
                 self._warmup_buffer = []  # free memory
             return
 
@@ -300,12 +334,8 @@ class EMACovariance(OnlineCovariance):
         self._mean = (1 - self._alpha) * self._mean + self._alpha * obs
         delta_at_n = obs - self._mean
 
-        if self._warmup == 0 and self.count == 2:
-            # No warmup: second entry initializes covariance (original behavior)
-            self._Cn = np.outer(delta, delta_at_n)
-            return
-
         self._Cn = (1 - self._alpha) * self._Cn + self._alpha * np.outer(delta, delta_at_n)
+        self._sum_w2 = (1 - self._alpha)**2 * self._sum_w2 + self._alpha**2
 
     def to_dict(self):
         """Serialize internal state to a plain dict."""
@@ -314,14 +344,19 @@ class EMACovariance(OnlineCovariance):
         d["alpha"] = self._alpha
         d["warmup"] = self._warmup
         d["warmup_buffer"] = [obs.copy() for obs in self._warmup_buffer]
+        d["bias"] = self._bias
+        d["sum_w2"] = self._sum_w2
         return d
 
     @classmethod
     def from_dict(cls, d):
         """Create an EMACovariance instance from a state dict."""
         dtype = np.dtype(d["dtype"])
+        # Checkpoints from before the bias option hold uncorrected state.
         obj = cls(order=d["order"], alpha=d["alpha"], warmup=d["warmup"],
-                  frequency=d["frequency"], geometric=d["geometric"], dtype=dtype)
+                  frequency=d["frequency"], geometric=d["geometric"], dtype=dtype,
+                  bias=d.get("bias", True))
+        obj._sum_w2 = d.get("sum_w2", 1.0)
         obj._count = int(d["count"])
         obj._mean = np.array(d["mean"], dtype=dtype)
         obj._Cn = np.array(d["Cn"], dtype=dtype)
@@ -329,17 +364,16 @@ class EMACovariance(OnlineCovariance):
         return obj
 
     def merge(self, other):
-        """
-        TODO: Update for EMACovariance
-        """
-        assert False, "Not implemented; Probably won't."
+        raise NotImplementedError("EMACovariance does not support merging")
 
 
 class SMACovariance(OnlineCovariance):
     """
-    TODO
+    Mean and covariance over a rolling window of the last span observations.
     """
     def __init__(self, order, span=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
+        if span is None or span < 1:
+            raise ValueError(f"span must be a positive integer, got {span}")
         super(SMACovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
         self._span = span
         self.queue = list()
@@ -369,7 +403,7 @@ class SMACovariance(OnlineCovariance):
         # Compute scatter matrix S = sum (x_i - x_bar)(x_i - x_bar)^T.
         # _Cn stores S; the cov property divides by (n-1) to give V_hat.
         if self._count >= 2:
-            self._Cn = np.cov(data, rowvar=False, ddof=1) * (self._count - 1)
+            self._Cn = calc_sample_covariance(data) * (self._count - 1)
         else:
             # Single observation: no covariance yet
             self._Cn = np.zeros((self._order, self._order), dtype=self.dtype)
@@ -395,49 +429,5 @@ class SMACovariance(OnlineCovariance):
         obj.queue = [np.array(obs, dtype=dtype) for obs in d["queue"]]
         return obj
 
-
-class RollingCovariance(OnlineCovariance):
-    """
-    Uses the Welford (1962) one-pass algorithm, also in reverse to
-    remove observations that leave the rolling window.
-
-    See:
-    https://stackoverflow.com/questions/30876298/removing-a-prior-sample-while-using-welfords-method-for-computing-single-pass-v
-
-    TODO: Don't think this algorithm is numerically stable.
-    Maybe we should just remove it.
-    """
-    def __init__(self, order, span=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
-        super(RollingCovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
-        self._span = span
-        self.queue = list()
-
-    def add(self, observation):
-        obs = self._prepare_observation(observation)
-
-        if self.count == self._span:
-            assert len(self.queue) == self.count
-
-            # pop oldest
-            obs_old = self.queue.pop(0)
-            assert len(self.queue) == self._span - 1
-
-            delta_old_at_n = obs_old - self.mean
-            self._mean -= (obs_old - self.mean)/(self.count - 1)
-            delta_old = obs_old - self.mean
-            self._Cn -= np.outer(delta_old, delta_old_at_n)
-
-        self.queue.append(obs)
-        self._count = len(self.queue)
-        assert 1 <= self._count <= self._span
-
-        if self.count == 1: # First entry 
-            self._mean = np.array(obs, dtype=self.dtype)
-            return
-
-        delta = obs - self._mean
-        self._mean += delta / self.count
-        delta_at_n = obs - self._mean
-
-        self._Cn += np.outer(delta, delta_at_n)
-
+    def merge(self, other):
+        raise NotImplementedError("SMACovariance does not support merging")

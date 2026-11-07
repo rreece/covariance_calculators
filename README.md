@@ -14,19 +14,26 @@ along with methods for computing confidence intervals on the covariance estimate
 Estimators included:
 
 -   `OnlineCovariance` - Welford's one-pass algorithm for incremental mean and covariance estimation, with support for merging independent estimators
--   `EMACovariance` - Exponential moving average covariance, parameterized by alpha, halflife, or span
+-   `EMACovariance` - Exponential moving average covariance, parameterized by alpha, halflife, or span, and bias-corrected by default (`bias=False`)
 -   `SMACovariance` - Simple moving average covariance over a fixed rolling window
 
 All estimators support a `geometric=True` mode that applies a log transform
 to observations, suitable for multiplicative processes like financial returns,
 and a `frequency` parameter for annualizing results (e.g. `frequency=252` for daily data).
+Geometric mode requires returns greater than -1, and `add` raises a `ValueError` otherwise.
 
 Confidence interval methods for the sample covariance matrix include:
 
 -   `asymptotic` - Normal approximation using the Wishart variance formula
+-   `chi2` - Exact chi-squared intervals for variances, with `asymptotic` intervals for covariances
 -   `wishart` - Monte Carlo sampling from the Wishart distribution
 -   `bootstrap` - Bootstrap resampling
 -   `parametric_mc` - Parametric Monte Carlo from a fitted normal
+
+Confidence intervals for the precision matrix use `calc_precision_intervals`,
+which samples from the inverse Wishart distribution, and is bias-corrected by default (`bias=False`).
+Except for `chi2` variances, these methods are large-sample approximations;
+see [Coverage at small sample sizes](#coverage-at-small-sample-sizes).
 
 
 ## Basic usage
@@ -94,7 +101,13 @@ ci_upper =
 
 ## Setup and running tests
 
-Create and activate a virtual environment:
+To use the package in another project, install it from the repository root:
+
+```bash
+pip install .
+```
+
+For development, create and activate a virtual environment:
 
 ```bash
 source setup.sh
@@ -119,7 +132,10 @@ make lint
 
 ## Coverage tests
 
-Shows that the confidence intervals are well calibrated at 1, 2, 3, and 4 $\sigma$ confidence levels:
+Shows that the confidence intervals are well calibrated for 1000 samples
+at 1, 2, 3, and 4 $\sigma$ confidence levels.
+`make test` checks this at 1, 2, and 3 $\sigma$ for `asymptotic`, and at 1 and 2 $\sigma$ for `wishart`,
+because the number of toys in the test cannot resolve the higher levels.
 
 ![Testing the statistical coverage of confidence intervals.](img/coverage.png)
 
@@ -310,7 +326,38 @@ C_{n} = (1 - \alpha) C_{n-1} + \alpha \left( \vec{x}_{n} - \vec{\mu}_{n-1} \righ
 ```
 
 where by summing a geometric series, one can show that for exponential weighting, $W_{n} = 1$,
-so $\hat{V} = C_{n}$.
+so $C_{n}$ is the weighted covariance.
+
+
+### Bias correction
+
+The weighted covariance measures spread around a weighted mean that includes the
+same observations, so like dividing by $n$ instead of $n-1$, it is biased low.
+For i.i.d. data with normalized weights,
+
+```math
+\mathbb{E}[C_{n}] = V \left( 1 - \sum_{i=1}^{n} w_{n,i}^2 \right)
+```
+
+The sum of squared weights can be updated online:
+
+```math
+\sum_{i=1}^{n} w_{n,i}^2 = (1 - \alpha)^2 \sum_{i=1}^{n-1} w_{n-1,i}^2 + \alpha^2
+```
+
+and the unbiased estimator, the analog of Bessel's correction, is
+
+```math
+\hat{V} = \frac{C_{n}}{1 - \sum_{i} w_{n,i}^2}
+```
+
+At steady state $\sum_{i} w_{n,i}^2 = \alpha / (2 - \alpha)$, and with
+$\alpha = 2 / (\mathrm{span} + 1)$ this is $1 / \mathrm{span}$,
+so the correction is exactly $\mathrm{span} / (\mathrm{span} - 1)$.
+
+`EMACovariance` applies this correction by default.
+With `bias=True` it returns $C_{n}$, which matches
+`pandas.Series.ewm(adjust=False).var(bias=True)`.
 
 
 ## Theory of confidence intervals
@@ -519,12 +566,80 @@ Q^\mathrm{lower} = F_{W}^{-1}(\frac{\alpha}{2}; \hat{V}, n-1)
 ```
 
 ```math
-Q_{ij}^\mathrm{lower} < V_{ij} < Q_{ij}^\mathrm{upper} \qquad \mathrm{at}~(1-\alpha)~\mathrm{CL}
+Q_{ij}^\mathrm{lower} < V_{ij} < Q_{ij}^\mathrm{upper} \qquad \mathrm{at~approximately}~(1-\alpha)~\mathrm{CL}
 ```
 
 This is what is implemented for `method="wishart"`.
 
-See also: Quantiles of $\chi^2 \Rightarrow$ $p$-values [Table](https://math.arizona.edu/~jwatkins/chi-square-table.pdf).
+
+### Coverage at small sample sizes
+
+These intervals plug the estimate $\hat{V}$ in for the unknown $V$, so they are only
+approximately calibrated. The approximation is good for large $n$, but variances are
+under-covered at small $n$. The distribution of a variance estimate is skewed
+to the right, and the true variance tends to fall above the interval.
+Measured for a nominal 95% interval on a diagonal element with `method="asymptotic"`:
+
+| $n$  | Coverage | True value above the interval |
+|------|----------|-------------------------------|
+| 10   | 86%      | 14%                           |
+| 30   | 92%      | 8%                            |
+| 100  | 94%      | 5.4%                          |
+| 1000 | 95%      | 3.5%                          |
+
+`method="wishart"` behaves about the same.
+
+For normal data, variances have an exact interval, because
+
+```math
+\frac{(n-1) \hat{V}_{ii}}{V_{ii}} \sim \chi^{2}_{n-1}
+```
+
+Inverting this gives
+
+```math
+\frac{(n-1) \hat{V}_{ii}}{\chi^{2}_{1-\alpha/2}} < V_{ii} < \frac{(n-1) \hat{V}_{ii}}{\chi^{2}_{\alpha/2}} \qquad \mathrm{at}~(1-\alpha)~\mathrm{CL}
+```
+
+where $\chi^{2}_{q}$ is the $q$ quantile of $\chi^{2}_{n-1}$.
+This is what is implemented for the diagonal elements with `method="chi2"`.
+Covariances have no similarly simple exact interval,
+so the off-diagonal elements use the same bounds as `method="asymptotic"`.
+The interval is only exact for normal data. Data with fatter tails, like most financial returns,
+will have lower coverage. Of the methods here, only `bootstrap` does not assume normality.
+
+The `wishart`, `bootstrap`, and `parametric_mc` methods estimate quantiles from a finite number of draws,
+set by `n_draws`. The tail beyond a bound holds a fraction $\alpha/2$ of the draws,
+so at 4 $\sigma$, where $\alpha/2 \simeq 3 \times 10^{-5}$, the default draws
+leave less than one sample in each tail. High confidence levels need a larger `n_draws`.
+
+
+### Bias of the precision estimate
+
+The inverse $\hat{V}^{-1}$ of the unbiased covariance estimate is not itself unbiased.
+With $\nu = n - 1$ degrees of freedom and $p$ features,
+
+```math
+\mathbb{E}[\hat{V}^{-1}] = \frac{\nu}{\nu - p - 1} V^{-1}
+```
+
+so the unbiased estimator of the precision is
+
+```math
+\hat{P} = \frac{\nu - p - 1}{\nu} \hat{V}^{-1}
+```
+
+`calc_precision_intervals` returns $\hat{P}$ by default, and centers its intervals on it.
+This also improves the coverage. Measured for a nominal 95% interval on the diagonal elements:
+
+| $p$ | $n$ | Coverage of $\hat{V}^{-1}$ (`bias=True`) | Coverage of $\hat{P}$ (default) |
+|-----|------|-----|-----|
+| 3   | 15   | 90.5% | 94.5% |
+| 3   | 100  | 94.3% | 94.6% |
+| 10  | 20   | 67.9% | 94.7% |
+| 10  | 200  | 91.8% | 94.5% |
+
+Note that $\hat{P}$ is not the exact inverse of $\hat{V}$.
 
 
 ## References

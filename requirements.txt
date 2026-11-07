@@ -1,3 +1,5 @@
+black==26.10.1
+flake8==7.5.0
 matplotlib==3.10.7
 #mplhep==0.4.1
 #mplhep_data==0.0.4
