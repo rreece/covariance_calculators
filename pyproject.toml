@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "covariance_calculators"
+version = "0.1.0"
+description = "Implementations of covariance estimators and confidence intervals"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = ["numpy", "scipy"]
+
+[tool.setuptools]
+packages = ["covariance_calculators"]
+package-dir = {"covariance_calculators" = "."}

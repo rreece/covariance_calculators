@@ -4,3 +4,5 @@
 # test output
 tests/coverage.pdf
 tests/coverage.png
+/coverage.pdf
+/coverage.png
