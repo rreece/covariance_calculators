@@ -14,7 +14,7 @@ along with methods for computing confidence intervals on the covariance estimate
 Estimators included:
 
 -   `OnlineCovariance` - Welford's one-pass algorithm for incremental mean and covariance estimation, with support for merging independent estimators
--   `EMACovariance` - Exponential moving average covariance, parameterized by alpha, halflife, or span
+-   `EMACovariance` - Exponential moving average covariance, parameterized by alpha, halflife, or span, and bias-corrected by default (`bias=False`)
 -   `SMACovariance` - Simple moving average covariance over a fixed rolling window
 
 All estimators support a `geometric=True` mode that applies a log transform
@@ -310,7 +310,38 @@ C_{n} = (1 - \alpha) C_{n-1} + \alpha \left( \vec{x}_{n} - \vec{\mu}_{n-1} \righ
 ```
 
 where by summing a geometric series, one can show that for exponential weighting, $W_{n} = 1$,
-so $\hat{V} = C_{n}$.
+so $C_{n}$ is the weighted covariance.
+
+
+### Bias correction
+
+The weighted covariance measures spread around a weighted mean that includes the
+same observations, so like dividing by $n$ instead of $n-1$, it is biased low.
+For i.i.d. data with normalized weights,
+
+```math
+\mathbb{E}[C_{n}] = V \left( 1 - \sum_{i=1}^{n} w_{n,i}^2 \right)
+```
+
+The sum of squared weights can be updated online:
+
+```math
+\sum_{i=1}^{n} w_{n,i}^2 = (1 - \alpha)^2 \sum_{i=1}^{n-1} w_{n-1,i}^2 + \alpha^2
+```
+
+and the unbiased estimator, the analog of Bessel's correction, is
+
+```math
+\hat{V} = \frac{C_{n}}{1 - \sum_{i} w_{n,i}^2}
+```
+
+At steady state $\sum_{i} w_{n,i}^2 = \alpha / (2 - \alpha)$, and with
+$\alpha = 2 / (\mathrm{span} + 1)$ this is $1 / \mathrm{span}$,
+so the correction is exactly $\mathrm{span} / (\mathrm{span} - 1)$.
+
+`EMACovariance` applies this correction by default.
+With `bias=True` it returns $C_{n}$, which matches
+`pandas.Series.ewm(adjust=False).var(bias=True)`.
 
 
 ## Theory of confidence intervals

@@ -7,7 +7,6 @@ TODO:
 [x] Online mean and covariance
 [x] Exponential moving mean and covariance
 [ ] NaN protection
-[ ] Rolling mean and covariance
 [ ] Shrinkage estimators
 """
 
@@ -220,11 +219,24 @@ class OnlineCovariance:
 
 
 class EMACovariance(OnlineCovariance):
-    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
+    """
+    Exponentially weighted mean and covariance.
+
+    Parameters
+    ----------
+    bias: bool, If False (default), apply the reliability-weights analog of
+    Bessel's correction, so cov is unbiased for i.i.d. data. If True, return
+    the uncorrected weighted covariance, which is low by a factor of
+    (1 - sum w_i^2). See README: "Bias correction".
+    """
+    def __init__(self, order, alpha=None, halflife=None, span=None, warmup=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE, bias=False):
         super(EMACovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
         _alpha = self._calc_alpha(alpha=alpha, halflife=halflife, span=span)
         assert 0 < _alpha < 1
         self._alpha = _alpha
+        self._bias = bias
+        # sum w_i^2 of the EMA weights on the observations seen so far.
+        self._sum_w2 = 1.0
         # Warmup: accumulate first N observations and initialize with SMA
         # Default warmup is span // 5 (if provided), otherwise no warmup
         # Warmup must be 0 (disabled) or >= 2 (need at least 2 observations for covariance)
@@ -260,14 +272,18 @@ class EMACovariance(OnlineCovariance):
     @property
     def cov(self):
         """
-        Note: denominator has W = 1
+        The weights sum to 1, so C_n is the weighted covariance.
+        With bias=False, it is divided by (1 - sum w_i^2) to remove the bias.
         """
         if self.count < 2:
             return None
         # During warmup, return None (not enough data for stable estimate)
         if self._warmup > 0 and self._count <= self._warmup:
             return None
-        return self._Cn * self.frequency
+        cov = self._Cn * self.frequency
+        if not self._bias:
+            cov = cov / (1.0 - self._sum_w2)
+        return cov
 
     def add(self, observation):
         obs = self._prepare_observation(observation)
@@ -282,11 +298,12 @@ class EMACovariance(OnlineCovariance):
                 data = np.array(self._warmup_buffer, dtype=self.dtype)
                 self._mean = np.mean(data, axis=0)
                 if len(data) >= 2:
-                    # Initialize _Cn with sample covariance scaled for EMA
-                    # Use (n-1) * cov as the base, then scale by (1-alpha) to
-                    # give appropriate weight relative to future EMA updates
+                    # Equal weights 1/k give sum w_i^2 = 1/k, and the weighted
+                    # covariance is (k-1)/k times the sample covariance.
+                    # This keeps E[C_n] = V * (1 - sum w_i^2) for later updates.
                     sample_cov = np.cov(data, rowvar=False, ddof=1)
-                    self._Cn = sample_cov * (1 - self._alpha)
+                    self._sum_w2 = 1.0 / len(data)
+                    self._Cn = sample_cov * (1.0 - self._sum_w2)
                 self._warmup_buffer = []  # free memory
             return
 
@@ -300,12 +317,8 @@ class EMACovariance(OnlineCovariance):
         self._mean = (1 - self._alpha) * self._mean + self._alpha * obs
         delta_at_n = obs - self._mean
 
-        if self._warmup == 0 and self.count == 2:
-            # No warmup: second entry initializes covariance (original behavior)
-            self._Cn = np.outer(delta, delta_at_n)
-            return
-
         self._Cn = (1 - self._alpha) * self._Cn + self._alpha * np.outer(delta, delta_at_n)
+        self._sum_w2 = (1 - self._alpha)**2 * self._sum_w2 + self._alpha**2
 
     def to_dict(self):
         """Serialize internal state to a plain dict."""
@@ -314,14 +327,19 @@ class EMACovariance(OnlineCovariance):
         d["alpha"] = self._alpha
         d["warmup"] = self._warmup
         d["warmup_buffer"] = [obs.copy() for obs in self._warmup_buffer]
+        d["bias"] = self._bias
+        d["sum_w2"] = self._sum_w2
         return d
 
     @classmethod
     def from_dict(cls, d):
         """Create an EMACovariance instance from a state dict."""
         dtype = np.dtype(d["dtype"])
+        # Checkpoints from before the bias option hold uncorrected state.
         obj = cls(order=d["order"], alpha=d["alpha"], warmup=d["warmup"],
-                  frequency=d["frequency"], geometric=d["geometric"], dtype=dtype)
+                  frequency=d["frequency"], geometric=d["geometric"], dtype=dtype,
+                  bias=d.get("bias", True))
+        obj._sum_w2 = d.get("sum_w2", 1.0)
         obj._count = int(d["count"])
         obj._mean = np.array(d["mean"], dtype=dtype)
         obj._Cn = np.array(d["Cn"], dtype=dtype)
@@ -394,50 +412,3 @@ class SMACovariance(OnlineCovariance):
         obj._Cn = np.array(d["Cn"], dtype=dtype)
         obj.queue = [np.array(obs, dtype=dtype) for obs in d["queue"]]
         return obj
-
-
-class RollingCovariance(OnlineCovariance):
-    """
-    Uses the Welford (1962) one-pass algorithm, also in reverse to
-    remove observations that leave the rolling window.
-
-    See:
-    https://stackoverflow.com/questions/30876298/removing-a-prior-sample-while-using-welfords-method-for-computing-single-pass-v
-
-    TODO: Don't think this algorithm is numerically stable.
-    Maybe we should just remove it.
-    """
-    def __init__(self, order, span=None, frequency=1, geometric=False, dtype=DEFAULT_DTYPE):
-        super(RollingCovariance, self).__init__(order, frequency=frequency, geometric=geometric, dtype=dtype)
-        self._span = span
-        self.queue = list()
-
-    def add(self, observation):
-        obs = self._prepare_observation(observation)
-
-        if self.count == self._span:
-            assert len(self.queue) == self.count
-
-            # pop oldest
-            obs_old = self.queue.pop(0)
-            assert len(self.queue) == self._span - 1
-
-            delta_old_at_n = obs_old - self.mean
-            self._mean -= (obs_old - self.mean)/(self.count - 1)
-            delta_old = obs_old - self.mean
-            self._Cn -= np.outer(delta_old, delta_old_at_n)
-
-        self.queue.append(obs)
-        self._count = len(self.queue)
-        assert 1 <= self._count <= self._span
-
-        if self.count == 1: # First entry 
-            self._mean = np.array(obs, dtype=self.dtype)
-            return
-
-        delta = obs - self._mean
-        self._mean += delta / self.count
-        delta_at_n = obs - self._mean
-
-        self._Cn += np.outer(delta, delta_at_n)
-

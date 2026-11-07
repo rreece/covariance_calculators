@@ -3,6 +3,7 @@ test_online_covariance.py
 """
 
 import numpy as np
+import pandas as pd
 
 from covariance_calculators.estimators import calc_sample_mean, calc_sample_covariance, OnlineCovariance, EMACovariance, SMACovariance
 
@@ -546,3 +547,111 @@ def test_mean_return_arithmetic():
 
     assert np.allclose(arith.mean_return, arith.mean, rtol=1e-12)
 
+
+# --- EMA bias correction tests ---
+
+
+def test_ema_matches_pandas_at_every_step():
+    """Without warmup, both bias modes should match pandas from the second observation on."""
+    np.random.seed(42)
+
+    data = pd.DataFrame(np.random.randn(100, 2))
+    alpha = 0.1
+
+    for bias in [True, False]:
+        ema = EMACovariance(order=2, alpha=alpha, warmup=0, bias=bias)
+        ewm = data.ewm(alpha=alpha, adjust=False)
+        expected_var = ewm.var(bias=bias).to_numpy()
+        expected_cov = data[0].ewm(alpha=alpha, adjust=False).cov(data[1], bias=bias).to_numpy()
+
+        for i, row in enumerate(data.to_numpy()):
+            ema.add(row)
+            if i == 0:
+                assert ema.cov is None
+                continue
+            assert np.allclose(np.diag(ema.cov), expected_var[i], rtol=1e-9)
+            assert np.isclose(ema.cov[0, 1], expected_cov[i], rtol=1e-9)
+
+
+def test_ema_bias_correction_is_span_over_span_minus_one():
+    """At steady state, the correction factor should be span / (span - 1)."""
+    np.random.seed(42)
+
+    span = 19
+    biased = EMACovariance(order=2, span=span, bias=True)
+    unbiased = EMACovariance(order=2, span=span)
+
+    for row in np.random.randn(1000, 2):
+        biased.add(row)
+        unbiased.add(row)
+
+    assert np.allclose(unbiased.cov, biased.cov * span / (span - 1), rtol=1e-9)
+    assert np.allclose(unbiased.corr, biased.corr, rtol=1e-9)
+
+
+def test_ema_unbiased_by_default():
+    """Averaged over many streams, cov should equal the truth at every sample size."""
+    rng = np.random.default_rng(42)
+
+    n_streams = 4000
+    true_cov = np.array([[1.0, 0.5],
+                         [0.5, 2.0]])
+    L = np.linalg.cholesky(true_cov)
+
+    # span=50 has a warmup of 10 observations, warmup=0 has none
+    for kwargs in [{"span": 50}, {"span": 50, "warmup": 0}]:
+        for n_obs in [11, 30, 200]:
+            total = np.zeros((2, 2))
+            for _ in range(n_streams):
+                ema = EMACovariance(order=2, **kwargs)
+                for row in rng.standard_normal((n_obs, 2)) @ L.T:
+                    ema.add(row)
+                total += ema.cov
+            assert np.allclose(total / n_streams, true_cov, rtol=0, atol=0.05)
+
+
+def test_ema_bias_frequency_scaling():
+    """Frequency scaling should be applied on top of the bias correction."""
+    np.random.seed(42)
+
+    plain = EMACovariance(order=2, span=20)
+    annual = EMACovariance(order=2, span=20, frequency=252)
+
+    for row in np.random.randn(100, 2) * 0.01:
+        plain.add(row)
+        annual.add(row)
+
+    assert np.allclose(annual.cov, plain.cov * 252, rtol=1e-9)
+
+
+def test_ema_checkpoint_preserves_bias_state():
+    """A restored EMA should continue identically, including inside warmup."""
+    np.random.seed(42)
+
+    data = np.random.randn(80, 2)
+
+    for bias in [True, False]:
+        for cut in [3, 10, 50]:
+            ema = EMACovariance(order=2, span=50, bias=bias)
+            for row in data[:cut]:
+                ema.add(row)
+            restored = EMACovariance.from_dict(ema.to_dict())
+            for row in data[cut:]:
+                ema.add(row)
+                restored.add(row)
+            assert np.array_equal(ema.cov, restored.cov)
+
+
+def test_ema_old_checkpoint_stays_uncorrected():
+    """A checkpoint saved before the bias option should load in uncorrected mode."""
+    np.random.seed(42)
+
+    ema = EMACovariance(order=2, span=50, bias=True)
+    for row in np.random.randn(80, 2):
+        ema.add(row)
+
+    state = ema.to_dict()
+    del state["bias"]
+    del state["sum_w2"]
+
+    assert np.array_equal(EMACovariance.from_dict(state).cov, ema.cov)
