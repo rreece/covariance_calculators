@@ -1,2 +1,6 @@
 **/__pycache__/
 *.py[cod]
+
+# test output
+tests/coverage.pdf
+tests/coverage.png
